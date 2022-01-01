@@ -28,6 +28,10 @@
 ## Common executions (copy / paste)
 ### Recreate DB and migrations, load sample fixture and run
 ```
+.\clean_setup.ps1
+```
+OR
+```
 cd C:\Users\jsabi\Documents\Tese\home
 Remove-Item .\scheduler\migrations\0*
 Remove-Item *.sqlite3
@@ -39,11 +43,9 @@ python manage.py runserver
 ```
 ### Run scheduler
 ```
-from scheduler.scheduler import Scheduler
-import pprint
-s = Scheduler()
-pprint.pprint(s.schedule)
+python manage.py runscheduler
 ```
+## Shell tests
 ### Create execution and schedule it
 ```
 from scheduler.scheduler import Scheduler
