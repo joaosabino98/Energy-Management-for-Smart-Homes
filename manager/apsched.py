@@ -1,4 +1,4 @@
-import logging
+import os, logging
 
 from django.conf import settings
 
@@ -9,6 +9,7 @@ from django_apscheduler.models import DjangoJobExecution
 from django_apscheduler import util
 
 logger = logging.getLogger(__name__)
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 
 logger.info("Creating scheduler...")
 scheduler = BackgroundScheduler(timezone=settings.TIME_ZONE)

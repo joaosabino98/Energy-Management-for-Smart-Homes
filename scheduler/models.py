@@ -46,7 +46,7 @@ class Profile(models.Model):
     priority = models.IntegerField(
         choices=PRIORITY_OPTIONS
     )
-    maximum_delay = models.DurationField(default="01:00:00")
+    maximum_delay = models.DurationField(default=timezone.timedelta(seconds=3600))
     rated_power = models.IntegerField()
 
     def __str__(self):
@@ -61,7 +61,7 @@ May require switching the profile for different uses.
 class Appliance(models.Model):
     name = models.CharField(max_length=100)
     profile = models.ManyToManyField(Profile)
-    maximum_duration_of_usage = models.DurationField(default="02:00:00")
+    maximum_duration_of_usage = models.DurationField(default=timezone.timedelta(seconds=7200))
 
     def __str__(self):
         return self.name

@@ -25,21 +25,20 @@
 ### Access objects through shell
 `python manage.py shell`
 
+### Run tests
+`python manage.py test [--tag=core] [--exclude-tag=slow]`
+
+### Clean database and start development server (PowerShell script)
+`.\clean_setup.ps1`
+
+### Run schedule manager (management command)
+`python manage.py runmanager`
+
+
 ## Common executions (copy / paste)
 ### Recreate DB and migrations, load sample fixture and run
 ```
-.\clean_setup.ps1
-```
-OR
-```
-cd C:\Users\jsabi\Documents\Tese\home
-Remove-Item .\scheduler\migrations\0*
-Remove-Item *.sqlite3
-python manage.py makemigrations
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py loaddata default_appliances.json
-python manage.py runserver
+.\scripts\clean_setup.ps1
 ```
 ### Run scheduler
 ```
@@ -48,85 +47,22 @@ python manage.py runscheduler
 ## Shell tests
 ### Create execution and schedule it
 ```
-from scheduler.scheduler import Scheduler
+from manager.schedule_manager import ScheduleManager
 from scheduler.models import *
 import pprint
-s = Scheduler()
+s = ScheduleManager()
 e = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
 s.schedule_execution(e)
 pprint.pprint(s.schedule)
 ```
-### Test priority formula for normal priority device
-```
-from scheduler.scheduler import Scheduler
-from scheduler.models import *
-from django.utils import timezone
-from datetime import timedelta
-
-s = Scheduler()
-rt1 = timezone.now() # 1 hour of remaining maximum delay
-rt2 = timezone.now()-timedelta(seconds=2700) # 15 minutes remaining
-rt3 = timezone.now()-timedelta(seconds=3550) # 10 seconds remaining 
-
-# Air conditioner
-e1 = Execution(request_time=rt1,appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e2 = Execution(request_time=rt2,appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e3 = Execution(request_time=rt3,appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-
-s.calculate_weighted_priority(e1) # expected priority: 5
-s.calculate_weighted_priority(e2) # expected priority: 9
-s.calculate_weighted_priority(e3) # expected priority: 10
-```
-### Test priority formula for immediate priority device
-```
-from scheduler.scheduler import Scheduler
-from scheduler.models import *
-from django.utils import timezone
-from datetime import timedelta
-
-s = Scheduler()
-rt1 = timezone.now() # 5 minutes remaining
-rt2 = timezone.now()-timedelta(seconds=290) # 10 seconds remaining 
-
-# Coffee machine
-e1 = Execution(request_time=rt1,appliance=Appliance.objects.get(pk=10),profile=Profile.objects.get(pk=13))
-e2 = Execution(request_time=rt2,appliance=Appliance.objects.get(pk=10),profile=Profile.objects.get(pk=13))
-
-s.calculate_weighted_priority(e1) # expected priority: 10
-s.calculate_weighted_priority(e2) # expected priority: 10
-```
-### Test priority formula for low-priority device
-```
-from scheduler.scheduler import Scheduler
-from scheduler.models import *
-from django.utils import timezone
-from datetime import timedelta
-
-s = Scheduler()
-rt1 = timezone.now() # 12 hours remaining
-rt2 = timezone.now()-timedelta(seconds=21600) # 6 hours remaining 
-rt3 = timezone.now()-timedelta(seconds=41400) # 30 minutes remaining 
-rt4 = timezone.now()-timedelta(seconds=43190) # 10 seconds remaining 
-
-# Washing machine
-e1 = Execution(request_time=rt1,appliance=Appliance.objects.get(pk=6),profile=Profile.objects.get(pk=10))
-e2 = Execution(request_time=rt2,appliance=Appliance.objects.get(pk=6),profile=Profile.objects.get(pk=11))
-e3 = Execution(request_time=rt3,appliance=Appliance.objects.get(pk=6),profile=Profile.objects.get(pk=10))
-e4 = Execution(request_time=rt4,appliance=Appliance.objects.get(pk=6),profile=Profile.objects.get(pk=11))
-
-s.calculate_weighted_priority(e1) # expected priority: 1
-s.calculate_weighted_priority(e2) # expected priority: 1
-s.calculate_weighted_priority(e3) # expected priority: 1
-s.calculate_weighted_priority(e4) # expected priority: 1
-```
 ### Test get_lower_priority_shiftable_executions
 ```
-from scheduler.scheduler import Scheduler
+from manager.schedule_manager import ScheduleManager
 from scheduler.models import *
 from django.utils import timezone
 from datetime import timedelta
 
-s = Scheduler()
+s = ScheduleManager()
 rt1 = timezone.now() # 1 hour of remaining maximum delay
 rt2 = timezone.now()-timedelta(seconds=2700) # 15 minutes remaining
 
@@ -143,10 +79,10 @@ s.get_lower_priority_shiftable_executions(7)
 s.get_lower_priority_shiftable_executions(9)
 s.get_lower_priority_shiftable_executions(10)
 ```
-### Test get_current_schedule_slot
+### Check get_current_schedule_slot
 ```
-from scheduler.scheduler import Scheduler
-s = Scheduler()
+from manager.schedule_manager import ScheduleManager
+s = ScheduleManager()
 s.get_current_schedule_slot()
 ```
 ### Test schedule_later
@@ -156,10 +92,10 @@ s.get_current_schedule_slot()
 # For e5 and e6, schedule_execution() should consider that no execution can be shifted /
 # and use schedule_later().
 
-from scheduler.scheduler import Scheduler
+from manager.schedule_manager import ScheduleManager
 from scheduler.models import *
 import pprint
-s = Scheduler()
+s = ScheduleManager()
 e1 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
 e2 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
 e3 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
@@ -182,10 +118,10 @@ pprint.pprint(s.schedule)
 # Using shift_executions, e5 must displace one of the previous executions for its exact execution time, \
 # execute immediately and update the schedule accordingly.
 
-from scheduler.scheduler import Scheduler
+from manager.schedule_manager import ScheduleManager
 from scheduler.models import *
 import pprint
-s = Scheduler()
+s = ScheduleManager()
 e1 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
 e2 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
 e3 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
@@ -212,22 +148,20 @@ pprint.pprint(s.schedule)
 # more complex scenarios, idk
 # TODO
 ```
-
 ### Test execution finish after 5 seconds
 ```
-from scheduler.scheduler import Scheduler
+from manager.schedule_manager import ScheduleManager
 from scheduler.models import *
-s = Scheduler()
+s = ScheduleManager()
 e5 = Execution.objects.create(appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=13))
 s.schedule_execution(e5)
 ```
-
 ### Test parse_time_to_slot
 ```
-from scheduler.scheduler import Scheduler
+from manager.schedule_manager import ScheduleManager
 from django.utils import timezone
 import pprint
-s = Scheduler()
+s = ScheduleManager()
 s.parse_time_to_slot("2021, 12, 7, 11, 55")
 s.parse_time_to_slot("2021-12-7 11:55:00")
 s.parse_time_to_slot("2021/12/7 11:55:00")
@@ -246,10 +180,10 @@ s.parse_time_to_slot(timezone.datetime(2021, 12, 7, 11, 55))
 
  
 ### Refactoring options:
-1. Scheduler process receives communications: schedule_execution, finish_execution
+1. ScheduleManager process receives communications: schedule_execution, finish_execution
  - more flexible and efficient
 
-2. Scheduler keeps checking for database changes
+2. ScheduleManager keeps checking for database changes
  - start/finish_execution_job are no longer needed
  - new executions prompt schedule_execution
  - old executions are finished if time is exceeded

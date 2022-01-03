@@ -1,32 +1,36 @@
+import os
+import django
 import re
 from math import floor, log10
-from django.db import transaction
 from django.utils import timezone
 from apscheduler.triggers.cron import CronTrigger
-import scheduler.apsched as aps
+import manager.apsched as aps
 
 from scheduler.settings import IMMEDIATE, INTERRUPTIBLE, LOW_PRIORITY, NONSCHEDULABLE, NORMAL
-from .models import AppVals, Execution
+from scheduler.models import AppVals, Execution
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
+django.setup()
 
 def start_execution_job(id):
 	execution = Execution.objects.get(pk=id)
 	if (execution.is_started is False):
 		execution.set_started()
-		Scheduler().add_running_execution(execution)
+		ScheduleManager().add_running_execution(execution)
 	print("Execution of " + execution.appliance.name + " started at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
 
 def finish_execution_job(id):
 	execution = Execution.objects.get(pk=id)
 	if (execution.is_finished is False and execution.is_interrupted is False):
 		execution.set_finished()
-		Scheduler().running.pop(execution, None)
+		ScheduleManager().running.pop(execution, None)
 	print("Execution of " + execution.appliance.name + " finished by the system at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
 
 def update_schedule_table_job():
-	Scheduler().populate_schedule()
+	ScheduleManager().populate_schedule()
 
 def update_queue_priorities_job():
-	Scheduler().update_priorities()
+	ScheduleManager().update_priorities()
 
 class Singleton(type):
 	def __init__(self, name, bases, mmbs):
@@ -36,7 +40,7 @@ class Singleton(type):
 	def __call__(self, *args, **kw):
 		return self._instance
 
-class Scheduler(metaclass = Singleton):
+class ScheduleManager(metaclass = Singleton):
 	threshold = None
 	bgsched = None
 	step = 5      # 5 minutes
@@ -111,6 +115,7 @@ class Scheduler(metaclass = Singleton):
 	3. If previous conditions can't be met, schedule for nearest available time.
 	TODO: Handle night activations
 	TODO: Handle energy production
+	TODO: Add previous running time to interrupted appliances
 	"""
 	def schedule_execution(self, execution):
 		rated_power = execution.profile.rated_power
