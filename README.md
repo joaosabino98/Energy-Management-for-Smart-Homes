@@ -177,7 +177,6 @@ s.parse_time_to_slot(timezone.datetime(2021, 12, 7, 11, 55))
  . Don't calculate priority based on maximum wait / arrange deterministically based on current time-request time - DONE
  * Include support for energy generators (best way to represent energy addition? average, minimum, time-based?)
  * UI, etc
-
  
 ### Refactoring options:
 1. ScheduleManager process receives communications: schedule_execution, finish_execution
@@ -189,6 +188,38 @@ s.parse_time_to_slot(timezone.datetime(2021, 12, 7, 11, 55))
  - old executions are finished if time is exceeded
  - IDEAL DJANGO approach: runs periodically, state is not kept, appvals effectively manages if it runs periodically or not
 
- ## Technical Documentation
+## Technical Documentation
 
+### Object classes
+
+### SchedulerManager
+
+The SchedulerManager receives requests from appliances that need to be executed or stopped, acting as a local server.  It is primarily responsible for managing execution lifecycles. To do so, it needs to keep track of the available energy resources across the next hours, accounting for the energy to be consumed by running or pending (scheduled) executions until their expected end.
+
+Each execution has a priority ranging from 1 to 10, where 10 is the highest priority and 1 is the lowest. This priority is calculated when the start request is processed, based on the priority class and maximum delay parameters defined by the user, and updated periodically.
+
+
+
+#### Start request handling logic
+
+When a start request arrives, the script checks if there is enough available power to run the appliance immediately. This option is preferred in situations of low energy demand, 
+
+> Setting: don't start immediately if execution is not interruptible? or don't start immediately if power is above xx% of limit?
+
+#### Energy tracking
+##### Time table
+##### Timeslot definition
+
+#### Application lifecycle
+
+### Priority calculation
+#### Update rules
+
+### Interprocess communication
+ - ZeroMQ (pyzmq)
+
+
+> Users may decide to terminate the execution of an appliance before the time assumed by the script. 
+
+> Keeping track of available energy resources, managing execution lifecycles and updating relative priorities.
 
