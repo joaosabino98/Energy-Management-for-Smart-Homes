@@ -31,6 +31,7 @@ def update_schedule_table_job():
 
 def update_queue_priorities_job():
 	ScheduleManager().update_priorities()
+	ScheduleManager().anticipate_pending_executions()
 
 class Singleton(type):
 	def __init__(self, name, bases, mmbs):
@@ -54,16 +55,15 @@ class ScheduleManager(metaclass = Singleton):
 		self.bgsched = aps.scheduler
 		self.populate_schedule()
 		self.populate_queues()
-		self.start_aps()
+		self.init_aps()
 		print("Initialization complete.")
 
-	def start_aps(self):
+	def init_aps(self):
 		self.bgsched.add_job(
 			update_schedule_table_job,
 			trigger=CronTrigger(day="*", hour="00", minute="00"),
 			id="update_schedule_table",
 			replace_existing=True)
-
 		self.bgsched.add_job(
 			update_queue_priorities_job,
 			trigger=CronTrigger(minute=f"*/{self.step}"),
@@ -72,6 +72,14 @@ class ScheduleManager(metaclass = Singleton):
 			
 		aps.start()
 		AppVals.set_running(True)
+
+	# TODO: reorganize executions in case of lowered threshold
+	def change_threshold(self, threshold):
+		AppVals.set_consumption_threshold(threshold)
+		self.threshold = threshold
+		self.populate_schedule()
+		self.update_priorities()
+		self.anticipate_pending_executions()
 
 	def update_priorities(self):
 		print("Updating priority of executions in queue.")
@@ -83,8 +91,25 @@ class ScheduleManager(metaclass = Singleton):
 		for execution in pending:
 			priority = self.calculate_weighted_priority(execution)
 			self.pending[execution] = priority
-			if (priority > 8):
-				print("Pending execution with high priority found. Attempting to shift lower priority running executions...")
+
+	"""
+	def anticipate_pending_executions(self) -> None
+
+	Sort pending executions by decreasing priority and attempt to reschedule them,
+	or shift lower priority executions. Also accomodates increases in the threshold.
+	TODO: optimize: skip if no executions were added/threshold wasn't changed?
+	"""
+	def anticipate_pending_executions(self):
+		temp = {k: v for k, v in sorted(self.pending.items(), key=lambda item: item[1], reverse=True)}
+		for execution, priority in temp.items():
+			print(f"Attempting to anticipate execution {execution.id}.")
+			now = self.get_current_schedule_slot()
+			start_time = self.get_available_time(now, execution)
+			if (start_time is not None and start_time < execution.start_time):
+				self.remove_executions_from_schedule([execution])
+				self.schedule_later(execution)
+			else:
+				print("Unable to reschedule earlier. Attempting to shift running executions with lower priority.")
 				rated_power = execution.profile.rated_power
 				result, interrupted = self.shift_executions(rated_power, priority)
 				if (result == True):
@@ -96,23 +121,17 @@ class ScheduleManager(metaclass = Singleton):
 						new = Execution.objects.create(appliance=execution.appliance, profile=execution.profile)
 						self.schedule_later(new)
 				else:
-					print("Unable to shift running executions. Attempting to reschedule earlier.")
-					now = self.get_current_schedule_slot()
-					start_time = self.get_available_time(now, execution)
-					if (start_time is not None and start_time < execution.start_time):
-						self.remove_executions_from_schedule([execution])
-						self.schedule_later(execution)
-					else:
-						print("Unable to reschedule earlier.")
+					print("Unable to anticipate execution.")
 
 	"""
-	def schedule_execution(self, execution) -> None
+	def schedule_execution(self, execution) -> success:boolean, status:int
 
-	Schedule executions.
+	Schedule executions, return status from request.
 	1. While enough power is available, schedule for immediate execution.
 	2. Else, if lower priority executions can be shifted, schedule for immediate execution
 	and schedule shifted executions for nearest available time (sorted by priority).
 	3. If previous conditions can't be met, schedule for nearest available time.
+	4. Unable to schedule.
 	TODO: Handle night activations
 	TODO: Handle energy production
 	TODO: Add previous running time to interrupted appliances
@@ -125,6 +144,7 @@ class ScheduleManager(metaclass = Singleton):
 		if (available_time == now):
 			print("Enough available power.")
 			self.start_execution(execution)
+			return True, 1
 		else:
 			print("Unable to activate immediately. Attempting to shift lower priority running executions...")
 			priority = self.calculate_weighted_priority(execution)
@@ -136,10 +156,17 @@ class ScheduleManager(metaclass = Singleton):
 				for execution in interrupted:
 					new = Execution.objects.create(appliance=execution.appliance, profile=execution.profile)
 					self.schedule_later(new)
+
+				return True, 2
 			else:
 				print("Unable to shift running executions.")
-				self.schedule_later(execution)
-
+				result = self.schedule_later(execution)
+				if (result == True):
+					return True, 3
+				else:
+					print("Unable to schedule new execution.")
+					return False, 4
+		
 	"""
 	schedule_later(self, execution, prev_start) -> boolean
 

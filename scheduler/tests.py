@@ -2,7 +2,7 @@ from django.test import TestCase, tag
 
 from scheduler.settings import IMMEDIATE, INTERRUPTIBLE, LOW_PRIORITY, NORMAL
 from .models import Execution, Appliance, Profile
-from manager.schedule_manager import ScheduleManager
+from manager.schedule_core import ScheduleManager
 from django.utils import timezone
 import time
 
