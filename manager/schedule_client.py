@@ -27,8 +27,6 @@ class ScheduleClient():
 
     def send_exit_request(self):
         self.socket.send(b'exit')
-        response = self.socket.recv()
-        print("Received reply: %s" % (response.decode("utf-8")))
         
 # cli = ScheduleClient()
 # cli.start()
