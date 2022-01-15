@@ -47,7 +47,7 @@ python manage.py runscheduler
 ## Shell tests
 ### Create execution and schedule it
 ```
-from manager.schedule_manager import ScheduleManager
+from manager.schedule_core import ScheduleManager
 from scheduler.models import *
 import pprint
 s = ScheduleManager()
@@ -57,7 +57,7 @@ pprint.pprint(s.schedule)
 ```
 ### Test get_lower_priority_shiftable_executions
 ```
-from manager.schedule_manager import ScheduleManager
+from manager.schedule_core import ScheduleManager
 from scheduler.models import *
 from django.utils import timezone
 from datetime import timedelta
@@ -81,7 +81,7 @@ s.get_lower_priority_shiftable_executions(10)
 ```
 ### Check get_current_schedule_slot
 ```
-from manager.schedule_manager import ScheduleManager
+from manager.schedule_core import ScheduleManager
 s = ScheduleManager()
 s.get_current_schedule_slot()
 ```
@@ -92,7 +92,7 @@ s.get_current_schedule_slot()
 # For e5 and e6, schedule_execution() should consider that no execution can be shifted /
 # and use schedule_later().
 
-from manager.schedule_manager import ScheduleManager
+from manager.schedule_core import ScheduleManager
 from scheduler.models import *
 import pprint
 s = ScheduleManager()
@@ -118,7 +118,7 @@ pprint.pprint(s.schedule)
 # Using shift_executions, e5 must displace one of the previous executions for its exact execution time, \
 # execute immediately and update the schedule accordingly.
 
-from manager.schedule_manager import ScheduleManager
+from manager.schedule_core import ScheduleManager
 from scheduler.models import *
 import pprint
 s = ScheduleManager()
@@ -150,7 +150,7 @@ pprint.pprint(s.schedule)
 ```
 ### Test execution finish after 5 seconds
 ```
-from manager.schedule_manager import ScheduleManager
+from manager.schedule_core import ScheduleManager
 from scheduler.models import *
 s = ScheduleManager()
 e5 = Execution.objects.create(appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=13))
@@ -158,7 +158,7 @@ s.schedule_execution(e5)
 ```
 ### Test parse_time_to_slot
 ```
-from manager.schedule_manager import ScheduleManager
+from manager.schedule_core import ScheduleManager
 from django.utils import timezone
 import pprint
 s = ScheduleManager()
@@ -166,6 +166,32 @@ s.parse_time_to_slot("2021, 12, 7, 11, 55")
 s.parse_time_to_slot("2021-12-7 11:55:00")
 s.parse_time_to_slot("2021/12/7 11:55:00")
 s.parse_time_to_slot(timezone.datetime(2021, 12, 7, 11, 55))
+
+```
+### Test previous_progress_time
+```
+from manager.schedule_core import ScheduleManager
+from scheduler.models import *
+import pprint
+import time
+s = ScheduleManager()
+e1 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
+e2 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
+e3 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
+e4 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
+s.schedule_execution(e1)
+s.schedule_execution(e2)
+s.schedule_execution(e3)
+s.schedule_execution(e4)
+time.sleep(5)
+e5 = Execution.objects.create(appliance=Appliance.objects.get(pk=10),profile=Profile.objects.get(pk=13))
+s.schedule_execution(e5)
+print(Execution.objects.get(pk=1).appliance.name)
+print(Execution.objects.get(pk=6).appliance.name)
+print(Execution.objects.get(pk=6).previous_progress_time)
+print(Execution.objects.get(pk=6).end_time-Execution.objects.get(pk=6).start_time+Execution.objects.get(pk=6).previous_progress_time)
+s.running
+
 ```
 
 ## General To-do

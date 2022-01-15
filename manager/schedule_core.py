@@ -118,7 +118,10 @@ class ScheduleManager(metaclass = Singleton):
 					self.start_execution(execution)
 					
 					for execution in interrupted:
-						new = Execution.objects.create(appliance=execution.appliance, profile=execution.profile)
+						new = Execution.objects.create(
+							appliance=execution.appliance,
+							profile=execution.profile,
+							previous_progress_time=execution.end_time-execution.start_time+execution.previous_progress_time)
 						self.schedule_later(new)
 				else:
 					print("Unable to anticipate execution.")
@@ -134,7 +137,6 @@ class ScheduleManager(metaclass = Singleton):
 	4. Unable to schedule.
 	TODO: Handle night activations
 	TODO: Handle energy production
-	TODO: Add previous running time to interrupted appliances
 	"""
 	def schedule_execution(self, execution):
 		rated_power = execution.profile.rated_power
@@ -154,7 +156,10 @@ class ScheduleManager(metaclass = Singleton):
 				self.start_execution(execution)
 
 				for execution in interrupted:
-					new = Execution.objects.create(appliance=execution.appliance, profile=execution.profile)
+					new = Execution.objects.create(
+						appliance=execution.appliance,
+						profile=execution.profile,
+						previous_progress_time=execution.end_time-execution.start_time+execution.previous_progress_time)
 					self.schedule_later(new)
 
 				return True, 2
@@ -168,7 +173,7 @@ class ScheduleManager(metaclass = Singleton):
 					return False, 4
 		
 	"""
-	schedule_later(self, execution, prev_start) -> boolean
+	schedule_later(self, execution, previous_progress_time) -> boolean
 
 	Schedule to a later time.
 	Return True if successful.
@@ -260,7 +265,8 @@ class ScheduleManager(metaclass = Singleton):
 	TODO: If execution is interruptible, respecting maximum delay is preferred over maximum duration
 	"""
 	def get_available_time(self, minimum_time, execution):
-		slots_needed = (-execution.appliance.maximum_duration_of_usage.seconds/60) // (-self.step) # ceiling division
+		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
+		slots_needed = (-remaining_execution_time.seconds/60) // (-self.step) # ceiling division
 		slot = None
 		found = 0
 		for time in self.schedule.keys():

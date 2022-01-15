@@ -91,19 +91,10 @@ class LifecycleTestCase(TestCase):
     def test_execution_simple_scheduling(self):
         s = ScheduleManager()
         e = Execution.objects.create(appliance=Appliance.objects.first(),profile=Profile.objects.first())
-        s.schedule_execution(e)
-        self.assertGreaterEqual(len(s.running), 1)
+        success, status = s.schedule_execution(e)
         self.assertIn(e, s.running)
-
-    @tag('slow')
-    def test_execution_finish(self):
-        s = ScheduleManager()
-        e = Execution.objects.create(appliance=Appliance.objects.first(),profile=Profile.objects.first())
-        s.schedule_execution(e)
-        time.sleep(5)
-        e = Execution.objects.get(pk=e.id)
-        self.assertNotIn(e, s.running)
-        self.assertTrue(e.is_finished)
+        self.assertEqual(success, True)
+        self.assertEqual(status, 1)
 
 """  """
 
