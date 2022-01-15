@@ -308,6 +308,7 @@ class ScheduleManager(metaclass = Singleton):
 			if (next >= now):
 				return time
 	
+	# TODO change low-priority formula
 	def calculate_weighted_priority(self, execution):
 		maximum_delay = execution.profile.maximum_delay
 		# # subtracting from start_time creates round-robin:

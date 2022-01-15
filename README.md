@@ -195,11 +195,13 @@ s.running
 ```
 
 ## General To-do
+ * URGENT: ensure SchedulerManager() called in aps is the same as in main thread; if not possible, forgo serialization and switch back to non-django apscheduler
+
  * Check APScheduler support for storing jobs in db and resuming on restart (django-apscheduler) - DONE
  * Repopulate schedule daily (APScheduler decorator?) - DONE
  * Update priorities periodically (APScheduler decorator?) - DONE, requires better testing
  * FIX BUG: executions are constantly shifted back and forth because priority is recalculated - DONE
- . Add "previous_progress" field to execution
+ . Add "previous_progress" field to execution - DONE
  . Don't calculate priority based on maximum wait / arrange deterministically based on current time-request time - DONE
  * Include support for energy generators (best way to represent energy addition? average, minimum, time-based?)
  * UI, etc
