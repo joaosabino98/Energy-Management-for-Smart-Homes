@@ -40,12 +40,12 @@
 ```
 .\scripts\clean_setup.ps1
 ```
-### Run scheduler
+### Run scheduler server
 ```
-python manage.py runscheduler
+python manage.py runmanager
 ```
 ## Shell tests
-### Create execution and schedule it
+### Create execution, schedule it and show timetable
 ```
 from manager.schedule_core import ScheduleManager
 from scheduler.models import *
@@ -69,95 +69,6 @@ while e.status() != "Finished":
 assert e.status() == "Finished"
 e.delete()
 ```
-### Test schedule_later
-```
-# Create 6 executions with the same priority.
-# Executions e1 to e4 are scheduled immediately.
-# For e5 and e6, schedule_execution() should consider that no execution can be shifted /
-# and use schedule_later().
-
-from manager.schedule_core import ScheduleManager
-from scheduler.models import *
-import pprint
-s = ScheduleManager()
-e1 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e2 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e3 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e4 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e5 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e6 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-s.schedule_execution(e1)
-s.schedule_execution(e2)
-s.schedule_execution(e3)
-s.schedule_execution(e4)
-s.schedule_execution(e5)
-s.schedule_execution(e6)
-pprint.pprint(s.schedule)
-```
-### Test shift_executions
-```
-# Sample test 1
-# Create 4 executions with normal priority and a fifth with immediate priority.
-# Executions e1 to e4 are scheduled immediately and take all the energy available.
-# Using shift_executions, e5 must displace one of the previous executions for its exact execution time, \
-# execute immediately and update the schedule accordingly.
-
-from manager.schedule_core import ScheduleManager
-from scheduler.models import *
-import pprint
-s = ScheduleManager()
-e1 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e2 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e3 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e4 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e5 = Execution.objects.create(appliance=Appliance.objects.get(pk=10),profile=Profile.objects.get(pk=13))
-s.schedule_execution(e1)
-s.schedule_execution(e2)
-s.schedule_execution(e3)
-s.schedule_execution(e4)
-s.schedule_execution(e5)
-pprint.pprint(s.schedule)
-
-```
-### Test shift_executions
-```
-# Sample test 2
-# A slot is available for the shifted appliance but doesn't have enough duration: \
-# Will it search for the first contiguous block of available slots correctly?
-# TODO
-```
-### Test shift_executions
-```
-# Sample test 3
-# more complex scenarios, idk
-# TODO
-
-```
-### Test previous_progress_time
-```
-from manager.schedule_core import ScheduleManager
-from scheduler.models import *
-import pprint
-import time
-s = ScheduleManager()
-e1 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e2 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e3 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-e4 = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-s.schedule_execution(e1)
-s.schedule_execution(e2)
-s.schedule_execution(e3)
-s.schedule_execution(e4)
-time.sleep(5)
-e5 = Execution.objects.create(appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=13))
-s.schedule_execution(e5)
-print(Execution.objects.get(pk=1).appliance.name)
-print(Execution.objects.get(pk=6).appliance.name)
-print(Execution.objects.get(pk=6).previous_progress_time)
-print(Execution.objects.get(pk=6).end_time-Execution.objects.get(pk=6).start_time+Execution.objects.get(pk=6).previous_progress_time)
-s.running
-
-```
 
 ## General To-do
  * Check APScheduler support for storing jobs in db and resuming on restart (django-apscheduler) - DONE
@@ -172,12 +83,19 @@ s.running
 ### Refactoring options:
 1. ScheduleManager process receives communications: schedule_execution, finish_execution
  - more flexible and efficient
+ - ready for front-end commands
 
-2. ScheduleManager keeps checking for database changes
+2. ScheduleManager keeps checking for database changes (according to step)
  - start/finish_execution_job are no longer needed
  - new executions prompt schedule_execution
  - old executions are finished if time is exceeded
  - IDEAL DJANGO approach: runs periodically, state is not kept, appvals effectively manages if it runs periodically or not
+3. ScheduleManager does not keep state, still uses django-apscheduler to manage job start/finish
+ - timetable and queues don't need to be maintained -> scheduler functions can be properly serialized
+ - get_available_timeslot would require refactoring -> executions could start immediately instead of on next step
+ - step only used for recalculations -> could be removed if algorithm predicts interruptions? 
+ - can the front-end run functions from scheduler directly?
+
 
 ## Technical Documentation
 
