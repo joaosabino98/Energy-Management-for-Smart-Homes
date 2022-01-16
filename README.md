@@ -55,35 +55,19 @@ e = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profi
 s.schedule_execution(e)
 pprint.pprint(s.schedule)
 ```
-### Test get_lower_priority_shiftable_executions
+### Test execution finish 
 ```
 from manager.schedule_core import ScheduleManager
 from scheduler.models import *
-from django.utils import timezone
-from datetime import timedelta
-
+import time
 s = ScheduleManager()
-rt1 = timezone.now() # 1 hour of remaining maximum delay
-rt2 = timezone.now()-timedelta(seconds=2700) # 15 minutes remaining
+e = Execution.objects.create(appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=13))
+s.schedule_execution(e)
+while e.status() != "Finished":
+    e = Execution.objects.get(pk=e.id)
 
-# Interruptible, priority: 5
-e1 = Execution.objects.create(request_time=rt1,appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-# Interruptible, priority: 9
-e2 = Execution.objects.create(request_time=rt2,appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-
-s.schedule_execution(e1)
-s.schedule_execution(e2)
-
-s.get_lower_priority_shiftable_executions(4)
-s.get_lower_priority_shiftable_executions(7)
-s.get_lower_priority_shiftable_executions(9)
-s.get_lower_priority_shiftable_executions(10)
-```
-### Check get_current_schedule_slot
-```
-from manager.schedule_core import ScheduleManager
-s = ScheduleManager()
-s.get_current_schedule_slot()
+assert e.status() == "Finished"
+e.delete()
 ```
 ### Test schedule_later
 ```
@@ -147,25 +131,6 @@ pprint.pprint(s.schedule)
 # Sample test 3
 # more complex scenarios, idk
 # TODO
-```
-### Test execution finish after 5 seconds
-```
-from manager.schedule_core import ScheduleManager
-from scheduler.models import *
-s = ScheduleManager()
-e5 = Execution.objects.create(appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=13))
-s.schedule_execution(e5)
-```
-### Test parse_time_to_slot
-```
-from manager.schedule_core import ScheduleManager
-from django.utils import timezone
-import pprint
-s = ScheduleManager()
-s.parse_time_to_slot("2021, 12, 7, 11, 55")
-s.parse_time_to_slot("2021-12-7 11:55:00")
-s.parse_time_to_slot("2021/12/7 11:55:00")
-s.parse_time_to_slot(timezone.datetime(2021, 12, 7, 11, 55))
 
 ```
 ### Test previous_progress_time
@@ -184,7 +149,7 @@ s.schedule_execution(e2)
 s.schedule_execution(e3)
 s.schedule_execution(e4)
 time.sleep(5)
-e5 = Execution.objects.create(appliance=Appliance.objects.get(pk=10),profile=Profile.objects.get(pk=13))
+e5 = Execution.objects.create(appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=13))
 s.schedule_execution(e5)
 print(Execution.objects.get(pk=1).appliance.name)
 print(Execution.objects.get(pk=6).appliance.name)
@@ -195,8 +160,6 @@ s.running
 ```
 
 ## General To-do
- * URGENT: ensure SchedulerManager() called in aps is the same as in main thread; if not possible, forgo serialization and switch back to non-django apscheduler
-
  * Check APScheduler support for storing jobs in db and resuming on restart (django-apscheduler) - DONE
  * Repopulate schedule daily (APScheduler decorator?) - DONE
  * Update priorities periodically (APScheduler decorator?) - DONE, requires better testing

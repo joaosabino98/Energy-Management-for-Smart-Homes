@@ -96,7 +96,21 @@ class LifecycleTestCase(TestCase):
         self.assertEqual(success, True)
         self.assertEqual(status, 1)
 
-"""  """
-
-
+class OtherFunctionsTestCase(TestCase):
+    def test_parse_time_to_slot(self):
+        s = ScheduleManager()
+        p1 = s.parse_time_to_slot("2021, 12, 7, 11, 55")
+        p2 = s.parse_time_to_slot("2021-12-7 11:55:00")
+        p3 = s.parse_time_to_slot("2021/12/7 11:55:00")
+        p4 = s.parse_time_to_slot(timezone.datetime(2021, 12, 7, 11, 55))
+        self.assertEqual(p1, p2)
+        self.assertEqual(p1, p3)
+        self.assertEqual(p1, p4)
+    
+    def test_get_current_schedule_slot(self):
+        s = ScheduleManager()
+        schedule_slot = s.get_current_schedule_slot()
+        now = timezone.now()
+        current_slot = now.replace(minute=(now.minute//s.step)*s.step, second=0, microsecond=0)
+        self.assertEqual(schedule_slot, current_slot)
 
