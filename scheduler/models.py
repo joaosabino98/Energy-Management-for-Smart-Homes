@@ -130,16 +130,16 @@ class Execution(models.Model):
             self.end_time = start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
             self.save()
 
-    def __str__(self):
+    def status(self):
         if (self.is_finished):
-            return "Execution of " + self.appliance.name + " requested at " + self.request_time.strftime("%m/%d/%Y, %H:%M:%S") \
-                + "\nStatus: Finished"
+            return "Finished"
         elif (self.is_interrupted):
-            return "Execution of " + self.appliance.name + " requested at " + self.request_time.strftime("%m/%d/%Y, %H:%M:%S") \
-                + "\nStatus: Interrupted"
+            return "Interrupted"
         elif (self.is_started):
-            return "Execution of " + self.appliance.name + " requested at " + self.request_time.strftime("%m/%d/%Y, %H:%M:%S") \
-                + "\nStatus: Started"    
+            return "Started"
         else:
-            return "Execution of " + self.appliance.name + " requested at " + self.request_time.strftime("%m/%d/%Y, %H:%M:%S") \
-                + "\nStatus: Pending"
+            return "Pending"
+
+    def __str__(self):
+        request_time = self.request_time.strftime("%m/%d/%Y, %H:%M:%S")
+        return f"Execution of {self.appliance.name} requested at {request_time}. Status: {self.status()}"
