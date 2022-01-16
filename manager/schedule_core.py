@@ -1,6 +1,7 @@
 import os
 import django
 import re
+import threading
 from math import floor, log10
 from django.utils import timezone
 from apscheduler.triggers.cron import CronTrigger
@@ -34,9 +35,13 @@ def update_queue_priorities_job():
 	ScheduleManager().anticipate_pending_executions()
 
 class Singleton(type):
+	_instance = None
+	_lock = threading.Lock()
+
 	def __init__(self, name, bases, mmbs):
-		super(Singleton, self).__init__(name, bases, mmbs)
-		self._instance = super(Singleton, self).__call__()
+		with self._lock:
+			super(Singleton, self).__init__(name, bases, mmbs)
+			self._instance = super(Singleton, self).__call__()
 
 	def __call__(self, *args, **kw):
 		return self._instance
