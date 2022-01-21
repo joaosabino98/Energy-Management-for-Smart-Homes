@@ -132,9 +132,11 @@ Other jobs waiting for execution are organized in a queue. The arrival time of s
 
 Algorithms are developed to optimize a certain function, an objective measure of the scheduling performance. The most common goal is minimization of makespan - the total time required to execute all jobs. Once again, it is adequate for systems only constrained by processing time. Other criteria include lateness, earliness and tardiness, measurements that relate the deadline and completion time of each job. Throughput and fairness are useful metrics in scheduling systems with homogeneous jobs. 
 
+However, in a house or building, multiple appliances can run simultaneously and independently, there being no restriction on the number of jobs. Executions are heterogeneous in running times and energy consumption, varying according to the energy profile and typical duration of usage of each application. Users can activate appliances at any time and stop them manually, earlier than predicted. [What else?]
+
+[Reapproach paragraph above with scheduling-specific terms]
 
 [Stochastic scheduling]
-[EXPAND ON TYPICAL REQUIREMENTS] However, in a house, multiple appliances can run simultaneously and independently, there being no restriction on the number of jobs. Executions are heterogeneous in running times and energy consumption, 
 
 ### Interprocess communication
  - ZeroMQ (pyzmq)
