@@ -81,6 +81,7 @@ class Execution(models.Model):
     start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
     previous_progress_time = models.DurationField(default=timezone.timedelta())
+    previous_waiting_time = models.DurationField(default=timezone.timedelta())
     appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE)
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
     is_started = models.BooleanField(default=False)
