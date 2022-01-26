@@ -77,6 +77,7 @@ e.delete()
  * FIX BUG: executions are constantly shifted back and forth because priority is recalculated - DONE
  . Add "previous_progress" field to execution - DONE
  . Don't calculate priority based on maximum wait / arrange deterministically based on current time-request time - DONE
+ * Create test_core (test_connector) with current functions, and enable background jobs in core
  * Include support for energy generators (best way to represent energy addition? average, minimum, time-based?)
  * UI, etc
  
