@@ -25,13 +25,16 @@ def finish_execution_job(id):
 		execution.set_finished()
 	print("Execution of " + execution.appliance.name + " finished by the system at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
 
-def update_queue_priorities_job():
-	# ScheduleManager().anticipate_pending_executions()
+#TODO: finish anticipate_pending_executions
+def find_anticipable_executions_job():
+	# anticipate_pending_executions()
 	pass
 
+#TODO: finish anticipate_pending_executions
 def change_threshold(threshold):
 	AppVals.set_consumption_threshold(threshold)
 	# anticipate_pending_executions()
+	pass
 
 def get_unfinished_executions():
 	date_limit = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) - timezone.timedelta(days=2)
@@ -82,8 +85,6 @@ def get_maximum_consumption_within(start_time, end_time, queryset=None):
 def get_positive_energy_difference(rated_power, target_power):
 	return rated_power - target_power if rated_power < target_power else float("inf")
 
-#Current algorithm: try to schedule whole execution
-#Alternative: find all available slots and schedule fractioned execution
 def get_available_execution_time(execution, minimum_start_time=timezone.now()):
 	unfinished = get_unfinished_executions()
 	remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
@@ -100,6 +101,7 @@ def get_available_execution_time(execution, minimum_start_time=timezone.now()):
 
 	return proposed_start_time
 
+#TODO: attempt to shedule execution in parts instead of whole
 def get_available_fractioned_execution_time(execution, minimum_start_time=timezone.now()):
 	pass
 
@@ -116,6 +118,8 @@ def get_reference_times_within(start_time, end_time, queryset=None):
 	return time_list
 
 def start_execution(execution, start_time=None):
+	# in a job-enabled environment, all jobs can be started as in "else" branch
+	# (start_time is timezone.now())
 	if (start_time is None):
 		execution.start()
 		print("Execution of " + execution.appliance.name + " started at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
@@ -197,7 +201,7 @@ def shift_executions(start_time, end_time, rated_power, priority):
 		interrupted.append(execution)
 		if (minimum_power_available >= rated_power):
 			break
-	
+
 	return True, interrupted
 
 def calculate_weighted_priority(execution):
@@ -223,9 +227,9 @@ step = 5
 bgsched = aps.scheduler
 aps.start()
 # bgsched.add_job(
-# 	update_queue_priorities_job,
+# 	find_anticipable_executions_job,
 # 	trigger=CronTrigger(minute=f"*/{step}"),
-# 	id="update_queue_priorities",
+# 	id="find_anticipable_executions",
 # 	replace_existing=True)
 AppVals.set_running(True)
 

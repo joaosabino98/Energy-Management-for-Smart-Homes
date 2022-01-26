@@ -136,7 +136,8 @@ However, in a house or building, multiple appliances can run simultaneously and 
 
 [Reapproach paragraph above with scheduling-specific terms]
 
-[Stochastic scheduling]
+[Stochastic scheduling?]
+[Utility Function]
 
 ### Interprocess communication
  - ZeroMQ (pyzmq)
