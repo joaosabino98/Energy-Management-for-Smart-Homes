@@ -7,8 +7,8 @@ def start_execution_job(id):
 def finish_execution_job(id):
     return core.finish_execution_job(id)
 
-def find_anticipable_executions_job():
-    return core.anticipate_pending_executions_job()
+def anticipate_high_priority_executions_job():
+    return core.anticipate_high_priority_executions_job()
 
 def change_threshold(threshold):
     return core.change_threshold(threshold)
@@ -69,3 +69,6 @@ def calculate_weighted_priority(execution):
 
 def anticipate_pending_executions():
     return core.anticipate_pending_executions(debug=True)
+
+def anticipate_high_priority_executions():
+    return core.anticipate_high_priority_executions(debug=True)

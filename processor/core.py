@@ -25,10 +25,9 @@ def finish_execution_job(id):
 		execution.set_finished()
 	print("Execution of " + execution.appliance.name + " finished by the system at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
 
-#TODO: finish anticipate_pending_executions
-def anticipate_pending_executions_job():
-	# anticipate_pending_executions()
-	pass
+#TODO: finish anticipate_high_priority_executions
+def anticipate_high_priority_executions_job():
+	anticipate_high_priority_executions()
 
 #TODO: finish anticipate_pending_executions
 def change_threshold(threshold):
@@ -147,6 +146,7 @@ def finish_execution(execution):
 	if (bgsched.get_job(f"{execution.id}_finish") is not None):
 		bgsched.remove_job(f"{execution.id}_finish")
 	print("Execution of " + execution.appliance.name + " finished by the user at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
+	anticipate_pending_executions()
 
 def schedule_execution(execution, debug=False):
 	rated_power = execution.profile.rated_power
@@ -175,7 +175,7 @@ def schedule_execution(execution, debug=False):
 			return 2
 		else:
 			print("Unable to shift running executions.")
-			schedule_later(execution, debug)
+			start_execution(execution, available_time, debug)
 			return 3
 
 def schedule_later(execution, debug=False):
@@ -223,14 +223,26 @@ def calculate_weighted_priority(execution):
 	return priority if priority <= 10 else 10
 
 def anticipate_pending_executions(debug=False):
+	pending_executions = list(get_pending_executions()).sort(key=lambda e: calculate_weighted_priority(e), reverse=True)
+	for execution in pending_executions:
+		print(f"Attempting to anticipate execution {execution.id}.")
+		now = timezone.now()
+		available_time = get_available_execution_time(execution, now)
+		if (available_time < execution.start_time):
+			start_execution(execution, available_time, debug)
+		else:
+			print("Unable to anticipate execution.")
+
+#TODO
+def anticipate_high_priority_executions(debug=False):
 	pass
 
 def start():
 	aps.start()
 	bgsched.add_job(
-		anticipate_pending_executions_job,
+		anticipate_high_priority_executions_job,
 		trigger=CronTrigger(minute=f"*/{step}"),
-		id="anticipate_pending_executions",
+		id="anticipate_high_priority_executions",
 		replace_existing=True)
 	AppVals.set_running(True)
 
