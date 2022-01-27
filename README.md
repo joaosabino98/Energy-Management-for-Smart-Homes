@@ -52,6 +52,7 @@ from scheduler.models import *
 core.start()
 e = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
 core.schedule_execution(e)
+e.delete()
 ```
 ### Test execution finish 
 ```

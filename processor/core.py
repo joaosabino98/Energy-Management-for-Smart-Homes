@@ -121,7 +121,7 @@ def start_execution(execution, start_time=None, debug=False):
 		execution.start() if start_time is None else execution.set_start_time(start_time)
 	else:
 		if (start_time is None):
-			start_time = timezone.now() + timezone.timedelta(milliseconds=10)
+			start_time = timezone.now()
 		execution.set_start_time(start_time)
 		bgsched.add_job(start_execution_job, 'date', [execution.id],
 			run_date=execution.start_time,
