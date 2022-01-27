@@ -45,24 +45,22 @@
 python manage.py runmanager
 ```
 ## Shell tests
-### Create execution, schedule it and show timetable
+### Schedule execution
 ```
-from manager.schedule_core import ScheduleManager
+import processor.core as core
 from scheduler.models import *
-import pprint
-s = ScheduleManager()
+core.start()
 e = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
 s.schedule_execution(e)
-pprint.pprint(s.schedule)
 ```
 ### Test execution finish 
 ```
-from manager.schedule_core import ScheduleManager
+import processor.core as core
 from scheduler.models import *
 import time
-s = ScheduleManager()
+core.start()
 e = Execution.objects.create(appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=13))
-s.schedule_execution(e)
+core.schedule_execution(e)
 while e.status() != "Finished":
     e = Execution.objects.get(pk=e.id)
 
@@ -77,7 +75,7 @@ e.delete()
  * FIX BUG: executions are constantly shifted back and forth because priority is recalculated - DONE
  . Add "previous_progress" field to execution - DONE
  . Don't calculate priority based on maximum wait / arrange deterministically based on current time-request time - DONE
- * Create test_core (test_connector) with current functions, and enable background jobs in core
+ * Create test_core (test_connector) with current functions, and enable background jobs in core - DONE
  * Include support for energy generators (best way to represent energy addition? average, minimum, time-based?)
  * UI, etc
  

@@ -2,7 +2,7 @@ from django.test import TestCase, tag
 
 from scheduler.settings import IMMEDIATE, INTERRUPTIBLE, LOW_PRIORITY, NONINTERRUPTIBLE, NORMAL
 from .models import AppVals, Execution, Appliance, Profile
-import processor.core as core
+import processor.test_core as core
 from django.utils import timezone
 import time
 

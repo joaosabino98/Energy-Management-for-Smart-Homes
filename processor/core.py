@@ -26,7 +26,7 @@ def finish_execution_job(id):
 	print("Execution of " + execution.appliance.name + " finished by the system at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
 
 #TODO: finish anticipate_pending_executions
-def find_anticipable_executions_job():
+def anticipate_pending_executions_job():
 	# anticipate_pending_executions()
 	pass
 
@@ -117,25 +117,24 @@ def get_reference_times_within(start_time, end_time, queryset=None):
 	time_list.sort()
 	return time_list
 
-def start_execution(execution, start_time=None):
-	# in a job-enabled environment, all jobs can be started as in "else" branch
-	# (start_time is timezone.now())
-	if (start_time is None):
-		execution.start()
-		print("Execution of " + execution.appliance.name + " started at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
+def start_execution(execution, start_time=None, debug=False):
+	if (debug is True):
+		execution.start() if start_time is None else execution.set_start_time(start_time)
 	else:
+		if (start_time is None):
+			start_time = timezone.now() + timezone.timedelta(milliseconds=10)
 		execution.set_start_time(start_time)
 		bgsched.add_job(start_execution_job, 'date', [execution.id],
 			run_date=execution.start_time,
 			id=str(execution.id) + "_start",
 			max_instances=1,
 			replace_existing=True)
-		print("Execution of " + execution.appliance.name + " starting at " + start_time.strftime("%m/%d/%Y, %H:%M:%S."))
-	bgsched.add_job(finish_execution_job, 'date', [execution.id],
-		id=str(execution.id) + "_finish",
-		run_date=execution.end_time,
-		max_instances=1,
-		replace_existing=True)
+		bgsched.add_job(finish_execution_job, 'date', [execution.id],
+			id=str(execution.id) + "_finish",
+			run_date=execution.end_time,
+			max_instances=1,
+			replace_existing=True)
+	print("Execution of " + execution.appliance.name + " starting at " + execution.start_time.strftime("%m/%d/%Y, %H:%M:%S."))
 
 def interrupt_execution(execution):
 	execution.interrupt()
@@ -149,14 +148,14 @@ def finish_execution(execution):
 		bgsched.remove_job(f"{execution.id}_finish")
 	print("Execution of " + execution.appliance.name + " finished by the user at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
 
-def schedule_execution(execution):
+def schedule_execution(execution, debug=False):
 	rated_power = execution.profile.rated_power
 	now = timezone.now()
 	available_time = get_available_execution_time(execution, now)
 
 	if (available_time == now):
 		print("Enough available power.")
-		start_execution(execution)
+		start_execution(execution, None, debug)
 		return 1
 	else:
 		print("Unable to activate immediately. Attempting to shift lower priority running executions...")
@@ -165,24 +164,24 @@ def schedule_execution(execution):
 		result, interrupted = shift_executions(now, now + remaining_execution_time, rated_power, priority)
 		if (result == True):
 			print("Lower priority running executions found.")
-			start_execution(execution)
+			start_execution(execution, None, debug)
 			for execution in interrupted:
 				new = Execution.objects.create(
 					appliance=execution.appliance,
 					profile=execution.profile,
 					previous_progress_time=execution.end_time-execution.start_time+execution.previous_progress_time,
 					previous_waiting_time=execution.start_time-execution.request_time+execution.previous_waiting_time)
-				schedule_later(new)
+				schedule_later(new, debug)
 			return 2
 		else:
 			print("Unable to shift running executions.")
-			schedule_later(execution)
+			schedule_later(execution, debug)
 			return 3
 
-def schedule_later(execution):
+def schedule_later(execution, debug=False):
 	now = timezone.now()
 	available_time = get_available_execution_time(execution, now)
-	start_execution(execution, available_time)
+	start_execution(execution, available_time, debug)
 
 def shift_executions(start_time, end_time, rated_power, priority):
 	running_executions = get_running_executions_within(start_time, end_time)
@@ -223,15 +222,20 @@ def calculate_weighted_priority(execution):
 
 	return priority if priority <= 10 else 10
 
+def anticipate_pending_executions(debug=False):
+	pass
+
+def start():
+	aps.start()
+	bgsched.add_job(
+		anticipate_pending_executions_job,
+		trigger=CronTrigger(minute=f"*/{step}"),
+		id="anticipate_pending_executions",
+		replace_existing=True)
+	AppVals.set_running(True)
+
 step = 5
 bgsched = aps.scheduler
-aps.start()
-# bgsched.add_job(
-# 	find_anticipable_executions_job,
-# 	trigger=CronTrigger(minute=f"*/{step}"),
-# 	id="find_anticipable_executions",
-# 	replace_existing=True)
-AppVals.set_running(True)
 
 # 	"""
 # 	def anticipate_pending_executions(self) -> None
