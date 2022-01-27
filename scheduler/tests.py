@@ -116,6 +116,28 @@ class LifecycleTestCase(TestCase):
         self.assertEqual(e3.status(), "Started")
         self.assertEqual(e4.status(), "Started")
 
+    @tag('slow')
+    def test_execution_finish(self):
+        e1 = Execution.objects.create(appliance=Appliance.objects.first(),profile=Profile.objects.first())
+        self.scheduler.schedule_execution(e1)
+        time.sleep(2)
+        self.scheduler.finish_execution(e1)
+        e1 = Execution.objects.get(pk=1)
+        e1_time = e1.end_time - e1.start_time 
+        self.assertEqual(e1.status(), "Finished")
+        self.assertEqual(e1_time.seconds, 2)        
+
+    @tag('slow')
+    def test_execution_interrupt(self):
+        e1 = Execution.objects.create(appliance=Appliance.objects.first(),profile=Profile.objects.first())
+        self.scheduler.schedule_execution(e1)
+        time.sleep(2)
+        self.scheduler.interrupt_execution(e1)
+        e1 = Execution.objects.get(pk=1)
+        e1_time = e1.end_time - e1.start_time 
+        self.assertEqual(e1.status(), "Interrupted")
+        self.assertEqual(e1_time.seconds, 2)        
+
 class FullSchedulingTestCase(TestCase):
     def setUp(self):
         AppVals.objects.create(consumption_threshold=8000, is_running=False)
@@ -266,25 +288,9 @@ class ComplexSchedulingTestCase(TestCase):
         self.assertEqual(status5, 3)
         self.assertEqual(e5.status(), "Pending")
 
+    def test_anticipate_pending_executions(self):
+        pass
 
-# class OtherFunctionsTestCase(TestCase):
-#     def setUp(self):
-#         AppVals.objects.create(consumption_threshold=8000, is_running=False)
-#         self.scheduler = ScheduleManager()
-#         self.scheduler.clean()
-
-#     def test_parse_time_to_slot(self):
-#         p1 = self.scheduler.parse_time_to_slot("2021, 12, 7, 11, 55")
-#         p2 = self.scheduler.parse_time_to_slot("2021-12-7 11:55:00")
-#         p3 = self.scheduler.parse_time_to_slot("2021/12/7 11:55:00")
-#         p4 = self.scheduler.parse_time_to_slot(timezone.datetime(2021, 12, 7, 11, 55))
-#         self.assertEqual(p1, p2)
-#         self.assertEqual(p1, p3)
-#         self.assertEqual(p1, p4)
-    
-#     def test_get_current_schedule_slot(self):
-#         schedule_slot = self.scheduler.get_current_schedule_slot()
-#         now = timezone.now()
-#         current_slot = now.replace(minute=(now.minute//self.scheduler.step)*self.scheduler.step, second=0, microsecond=0)
-#         self.assertEqual(schedule_slot, current_slot)
+    def test_anticipate_high_priority_executions(self):
+        pass
 

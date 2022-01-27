@@ -51,7 +51,7 @@ import processor.core as core
 from scheduler.models import *
 core.start()
 e = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-s.schedule_execution(e)
+core.schedule_execution(e)
 ```
 ### Test execution finish 
 ```

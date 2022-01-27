@@ -16,6 +16,9 @@ def change_threshold(threshold):
 def get_unfinished_executions():
     return core.get_unfinished_executions()
 
+def get_pending_executions():
+    return core.get_pending_executions()
+
 def get_running_executions():
     return core.get_running_executions()
 
@@ -24,9 +27,6 @@ def get_running_executions_within(start_time, end_time):
 
 def get_lower_priority_shiftable_executions_within(start_time, end_time, target_power, target_priority):
     return core.get_lower_priority_shiftable_executions_within(start_time, end_time, target_power, target_priority)
-
-def get_pending_executions():
-    return core.get_pending_executions()
 
 def get_energy_consumption(time, queryset=None):
     return core.get_energy_consumption(time, queryset)

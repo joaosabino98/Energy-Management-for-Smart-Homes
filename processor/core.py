@@ -39,6 +39,10 @@ def get_unfinished_executions():
 	date_limit = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) - timezone.timedelta(days=2)
 	return Execution.objects.filter(request_time__gt=date_limit).exclude(end_time__lt=timezone.now()).order_by('end_time')
 
+def get_pending_executions():
+	unfinished = get_unfinished_executions()
+	return unfinished.filter(start_time__gt=timezone.now())
+
 def get_running_executions():
 	unfinished = get_unfinished_executions()
 	return unfinished.filter(start_time__lte=timezone.now())
@@ -57,10 +61,6 @@ def get_lower_priority_shiftable_executions_within(start_time, end_time, target_
 	sorted_keys = sorted(shiftable_executions,
 		key=lambda e: (calculate_weighted_priority(e), get_positive_energy_difference(e.profile.rated_power, target_power)))
 	return sorted_keys
-
-def get_pending_executions():
-	unfinished = get_unfinished_executions()
-	return unfinished.filter(start_time__gt=timezone.now())
 
 def get_energy_consumption(time, queryset=None):
 	rated_power = 0
@@ -223,7 +223,7 @@ def calculate_weighted_priority(execution):
 	return priority if priority <= 10 else 10
 
 def anticipate_pending_executions(debug=False):
-	pending_executions = list(get_pending_executions()).sort(key=lambda e: calculate_weighted_priority(e), reverse=True)
+	pending_executions = sorted(list(get_pending_executions()), key=lambda e: calculate_weighted_priority(e), reverse=True)
 	for execution in pending_executions:
 		print(f"Attempting to anticipate execution {execution.id}.")
 		now = timezone.now()
