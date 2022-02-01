@@ -7,7 +7,7 @@ from django.utils import timezone
 from apscheduler.triggers.cron import CronTrigger
 import processor.apsched as aps
 
-from scheduler.settings import IMMEDIATE, INTERRUPTIBLE, LOW_PRIORITY, NONSCHEDULABLE, NORMAL
+from scheduler.settings import IMMEDIATE, INTERRUPTIBLE, LOW_PRIORITY, NORMAL
 from scheduler.models import AppVals, Appliance, Execution
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")

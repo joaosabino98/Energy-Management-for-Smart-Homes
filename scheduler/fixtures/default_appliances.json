@@ -67,7 +67,7 @@
       "pk":6,
       "fields":{
          "name":"Fridge",
-         "schedulability":2,
+         "schedulability":1,
          "priority":0,
          "maximum_delay":"00:00:00",
          "rated_power":150

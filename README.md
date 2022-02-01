@@ -78,6 +78,7 @@ e.delete()
  . Don't calculate priority based on maximum wait / arrange deterministically based on current time-request time - DONE
  * Create test_core (test_connector) with current functions, and enable background jobs in core - DONE
  * Include support for energy generators (best way to represent energy addition? average, minimum, time-based?)
+ * New scheduling strategies: production-hours-first, battery-consumption-at-peak-hours-first
  * UI, etc
  
 ### Refactoring options:
@@ -103,7 +104,7 @@ e.delete()
 
 ### SchedulerManager
 
-The SchedulerManager receives requests from appliances that need to be executed or stopped, acting as a local server.  It is primarily responsible for managing execution lifecycles. To do so, it needs to keep track of the available energy resources across the next hours, accounting for the energy to be consumed by running or pending (scheduled) executions until their expected end.
+The SchedulerManager receives requests from appliances that need to be executed or stopped, acting as a local server. It is primarily responsible for managing execution lifecycles. To do so, it needs to keep track of the available energy resources across the next hours, accounting for the energy to be consumed by running or pending (scheduled) executions until their expected end.
 
 Each execution has a priority ranging from 1 to 10, where 10 is the highest priority and 1 is the lowest. This priority is calculated when the start request is processed, based on the priority class and maximum delay parameters defined by the user, and updated periodically.
 
@@ -119,10 +120,16 @@ When a start request arrives, the script checks if there is enough available pow
 ##### Time table
 ##### Timeslot definition
 
-#### Application lifecycle
+#### Appliance lifecycle
 
 ### Priority calculation
 #### Update rules
+
+---
+
+### Appliance categorization
+An effective HEMS solution depends on accurate parametrization of appliance behaviour and time sensitiveness. Appliances can be primarily categorized regarding their compatibility with management systems: schedulable appliances can run and stop at adjustable times, while non-schedulable ones cannot. Non-schedulable appliances can't be managed by the system: although their power consumption must be tracked, they may be unmanageable due to incompability 
+<!-- Non-schedulable appliances aren't really non-schedulable, just non-interruptible, immediate appliances with 0 maximum acceptable delay -->
 
 ### Scheduling strategy
 
@@ -147,3 +154,6 @@ However, in a house or building, multiple appliances can run simultaneously and 
 
 > Keeping track of available energy resources, managing execution lifecycles and updating relative priorities.
 
+### Useful links / papers
+
+[1] H. Li, C. Zang, P. Zeng, H. Yu, Z. Li and N. Fenglian, "Optimal home energy management integrating random PV and appliances based on stochastic programming," 2016 Chinese Control and Decision Conference (CCDC), 2016, pp. 429-434, doi: 10.1109/CCDC.2016.7531023.
