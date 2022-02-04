@@ -8,6 +8,17 @@
       }
    },
    {
+      "model":"scheduler.photovoltaicsystem",
+      "pk":1,
+      "fields":{
+         "latitude": 38.762,
+         "longitude": -9.155,
+         "tilt": 20,
+         "azimut": 180,
+         "capacity": 6400
+      }
+   },
+   {
       "model":"scheduler.profile",
       "pk":1,
       "fields":{
