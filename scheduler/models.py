@@ -1,5 +1,5 @@
 from django.db import models, transaction
-from .settings import PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, NONSCHEDULABLE
+from .settings import PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS
 from django.utils import timezone
 
 # Create your models here.
@@ -39,7 +39,7 @@ Generic profiles for appliances, with rated power and default priority.
 Preloaded in the system.
 '''
 class Profile(models.Model):
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=50, unique=True)
     schedulability = models.IntegerField(
         choices=SCHEDULABILITY_OPTIONS
     )
@@ -152,6 +152,9 @@ class PhotovoltaicSystem(models.Model):
 class ProductionData(models.Model):
     system = models.ForeignKey(PhotovoltaicSystem, on_delete=models.CASCADE)
     month_name = models.TextChoices("month_name", "JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER NOVEMBER DECEMBER")
-    month = models.CharField(choices=month_name)
+    month = models.CharField(choices=month_name.choices, max_length=9)
     hour = models.IntegerField()
     average_power_generated = models.IntegerField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['system', 'month', 'hour'], name='unique_system_hourly_value')]
