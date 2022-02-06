@@ -1,7 +1,5 @@
 import os
 import django
-import re
-import threading
 from math import floor, log10
 from django.utils import timezone
 from apscheduler.triggers.cron import CronTrigger
@@ -25,15 +23,12 @@ def finish_execution_job(id):
 		execution.set_finished()
 	print("Execution of " + execution.appliance.name + " finished by the system at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
 
-#TODO: finish anticipate_high_priority_executions
 def anticipate_high_priority_executions_job():
 	anticipate_high_priority_executions()
 
-#TODO: finish anticipate_pending_executions
 def change_threshold(threshold):
 	AppVals.set_consumption_threshold(threshold)
-	# anticipate_pending_executions()
-	pass
+	anticipate_pending_executions()
 
 def get_unfinished_executions():
 	date_limit = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) - timezone.timedelta(days=2)
@@ -149,7 +144,6 @@ def finish_execution(execution):
 	anticipate_pending_executions()
 
 def schedule_execution(execution, debug=False):
-	rated_power = execution.profile.rated_power
 	now = timezone.now()
 	available_time = get_available_execution_time(execution, now)
 
@@ -159,19 +153,7 @@ def schedule_execution(execution, debug=False):
 		return 1
 	else:
 		print("Unable to activate immediately. Attempting to shift lower priority running executions...")
-		priority = calculate_weighted_priority(execution)
-		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
-		result, interrupted = shift_executions(now, now + remaining_execution_time, rated_power, priority)
-		if (result == True):
-			print("Lower priority running executions found.")
-			start_execution(execution, None, debug)
-			for execution in interrupted:
-				new = Execution.objects.create(
-					appliance=execution.appliance,
-					profile=execution.profile,
-					previous_progress_time=execution.end_time-execution.start_time+execution.previous_progress_time,
-					previous_waiting_time=execution.start_time-execution.request_time+execution.previous_waiting_time)
-				schedule_later(new, debug)
+		if (shift_executions(execution, now, debug) is True):
 			return 2
 		else:
 			print("Unable to shift running executions.")
@@ -183,7 +165,24 @@ def schedule_later(execution, debug=False):
 	available_time = get_available_execution_time(execution, now)
 	start_execution(execution, available_time, debug)
 
-def shift_executions(start_time, end_time, rated_power, priority):
+def shift_executions(execution, start_time, debug=False):
+	priority = calculate_weighted_priority(execution)
+	rated_power = execution.profile.rated_power
+	remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
+	result, interrupted = interrupt_shiftable_executions(start_time, start_time + remaining_execution_time, rated_power, priority)
+	if (result == True):
+		print("Lower priority running executions found.")
+		start_execution(execution, None, debug)
+		for execution in interrupted:
+			new = Execution.objects.create(
+				appliance=execution.appliance,
+				profile=execution.profile,
+				previous_progress_time=execution.end_time-execution.start_time+execution.previous_progress_time,
+				previous_waiting_time=execution.start_time-execution.request_time+execution.previous_waiting_time)
+			schedule_later(new, debug)
+		return result
+
+def interrupt_shiftable_executions(start_time, end_time, rated_power, priority):
 	running_executions = get_running_executions_within(start_time, end_time)
 	shiftable_executions = get_lower_priority_shiftable_executions_within(start_time, end_time, rated_power, priority)
 	minimum_power_available = AppVals.get_consumption_threshold() - get_maximum_consumption_within(start_time, end_time, running_executions)
@@ -233,9 +232,14 @@ def anticipate_pending_executions(debug=False):
 		else:
 			print("Unable to anticipate execution.")
 
-#TODO
 def anticipate_high_priority_executions(debug=False):
-	pass
+	pending_executions = sorted(list(get_pending_executions()), key=lambda e: calculate_weighted_priority(e), reverse=True)
+	for execution in pending_executions:
+		print(calculate_weighted_priority(execution))
+		if (calculate_weighted_priority(execution) > 7):
+			now = timezone.now()
+			if (shift_executions(execution, now, debug) is False):
+				print("Unable to anticipate execution.")
 
 def start():
 	aps.start()
@@ -248,39 +252,3 @@ def start():
 
 step = 5
 bgsched = aps.scheduler
-
-# 	"""
-# 	def anticipate_pending_executions(self) -> None
-
-# 	Sort pending executions by decreasing priority and attempt to reschedule them,
-# 	or shift lower priority executions. Also accomodates increases in the threshold.
-# 	TODO: optimize: skip if no executions were added/threshold wasn't changed?
-# 	"""
-# 	def anticipate_pending_executions(self):
-# 		temp = {k: v for k, v in sorted(self.pending.items(), key=lambda item: item[1], reverse=True)}
-# 		for execution, priority in temp.items():
-# 			print(f"Attempting to anticipate execution {execution.id}.")
-# 			now = self.get_current_schedule_slot()
-# 			start_time = self.get_available_timeslot(now, execution)
-# 			if (start_time is not None and start_time < execution.start_time):
-# 				self.remove_executions_from_timetable([execution])
-# 				self.schedule_later(execution)
-# 			else:
-# 				print("Unable to reschedule earlier. Attempting to shift running executions with lower priority.")
-# 				rated_power = execution.profile.rated_power
-# 				result, interrupted = self.shift_executions(rated_power, priority)
-# 				if (result == True):
-# 					print("Lower priority running executions found.")
-# 					self.remove_executions_from_timetable([execution])
-# 					self.start_execution(execution)
-					
-# 					for execution in interrupted:
-# 						new = Execution.objects.create(
-# 							appliance=execution.appliance,
-# 							profile=execution.profile,
-# 							previous_progress_time=execution.end_time-execution.start_time+execution.previous_progress_time)
-# 						self.schedule_later(new)
-# 				else:
-# 					print("Unable to anticipate execution.")
-
-# 	"""

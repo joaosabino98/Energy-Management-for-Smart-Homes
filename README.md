@@ -28,22 +28,12 @@
 ### Run tests
 `python manage.py test [--tag=core] [--exclude-tag=slow]`
 
-### Clean database and start development server (PowerShell script)
-`.\clean_setup.ps1`
+### Clean database and setup sample data (PowerShell script)
+`.\scripts\clean_setup.ps1`
 
-### Run schedule manager (management command)
-`python manage.py runmanager`
+### Test scheduler
+`python manage.py test`
 
-
-## Common executions (copy / paste)
-### Recreate DB and migrations, load sample fixture and run
-```
-.\scripts\clean_setup.ps1
-```
-### Run scheduler server
-```
-python manage.py runmanager
-```
 ## Shell tests
 ### Schedule execution
 ```
@@ -80,23 +70,6 @@ e.delete()
  * Include support for energy generators (best way to represent energy addition? average, minimum, time-based?)
  * New scheduling strategies: production-hours-first, battery-consumption-at-peak-hours-first
  * UI, etc
- 
-### Refactoring options:
-1. ScheduleManager process receives communications: schedule_execution, finish_execution
- - more flexible and efficient
- - ready for front-end commands
-
-2. ScheduleManager keeps checking for database changes (according to step)
- - start/finish_execution_job are no longer needed
- - new executions prompt schedule_execution
- - old executions are finished if time is exceeded
- - IDEAL DJANGO approach: runs periodically, state is not kept, appvals effectively manages if it runs periodically or not
-3. ScheduleManager does not keep state, still uses django-apscheduler to manage job start/finish
- - timetable and queues don't need to be maintained -> scheduler functions can be properly serialized
- - get_available_timeslot would require refactoring -> executions could start immediately instead of on next step
- - step only used for recalculations -> could be removed if algorithm predicts interruptions? 
- - can the front-end run functions from scheduler directly?
-
 
 ## Technical Documentation
 
@@ -127,9 +100,14 @@ When a start request arrives, the script checks if there is enough available pow
 
 ---
 
+
 ### Appliance categorization
-An effective HEMS solution depends on accurate parametrization of appliance behaviour and time sensitiveness. Appliances can be primarily categorized regarding their compatibility with management systems: schedulable appliances can run and stop at adjustable times, while non-schedulable ones cannot. Non-schedulable appliances can't be managed by the system: although their power consumption must be tracked, they may be unmanageable due to incompability 
+An effective HEMS solution depends on accurate parametrization of appliance behaviour and time sensitiveness. Appliances can be primarily categorized regarding their ability to interrupt and resume their work. Some appliances can stop and resume with little to no loss of progress, such as recent models of washing machines or HVAC. These machines either keep track of their current progress, or perform a single task with continuous output, where an interruption at opportune times is considered acceptable by the user. Appliances within this category are classified as interruptible. On the other hand, appliances that are unable to resume their progress on restart, require a significant amount of energy to go back to the state before shutdown, or simply require continuous execution to achieve a goal, are considered non-interruptible. Examples are the oven, coffee machine, or even the television during an important segment.
 <!-- Non-schedulable appliances aren't really non-schedulable, just non-interruptible, immediate appliances with 0 maximum acceptable delay -->
+
+### Future work
+<!-- Use real power, measured or reported by appliances, or a more accurate estimate based on the consumption profile across time -->
+<!-- Integrate proximity to desired temperature as a criteria for HVAC appliance priority decision -->
 
 ### Scheduling strategy
 

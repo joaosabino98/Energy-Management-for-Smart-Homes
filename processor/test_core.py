@@ -61,7 +61,10 @@ def schedule_execution(execution):
 def schedule_later(execution):
     return core.schedule_later(execution, debug=True)
 
-def shift_executions(start_time, end_time, rated_power, priority):
+def shift_executions(execution, start_time):
+    return core.try_shift_executions(execution, start_time, debug=True)
+
+def interrupt_shiftable_executions(start_time, end_time, rated_power, priority):
     return core.shift_executions(start_time, end_time, rated_power, priority)
 
 def calculate_weighted_priority(execution):
