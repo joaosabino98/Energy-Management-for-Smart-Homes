@@ -4,7 +4,19 @@
       "pk":1,
       "fields":{
          "consumption_threshold":8000,
+         "accept_recommendations":false,
+         "strategy":0,
          "is_running":false
+      }
+   },
+   {
+      "model":"scheduler.batterystoragestystem",
+      "pk":1,
+      "fields":{
+         "power_capacity":1000,
+         "total_energy_capacity":4000,
+         "current_energy_capacity":4000,
+         "depth_of_discharge":90
       }
    },
    {

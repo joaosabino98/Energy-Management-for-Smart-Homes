@@ -1,11 +1,13 @@
 from django.db import models, transaction
-from .settings import PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS
+from .settings import PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
 from django.utils import timezone
 
 # Create your models here.
 
 class AppVals(models.Model):
     consumption_threshold = models.IntegerField(help_text="Consumption threshold (W)")
+    accept_recommendations = models.BooleanField(default=False)
+    strategy = models.IntegerField(choices=STRATEGY_OPTIONS)
     is_running = models.BooleanField()
 
     @classmethod
@@ -22,10 +24,36 @@ class AppVals(models.Model):
             val.save()
 
     @classmethod
+    def get_accept_recommendations(cls):
+        with transaction.atomic():
+            val = cls.objects.select_for_update().first()
+            return val.accept_recommendations
+
+    @classmethod
+    def set_accept_recommendations(cls, new_val):
+        with transaction.atomic():
+            val = cls.objects.select_for_update().first()
+            val.accept_recommendations = new_val
+            val.save()
+
+    @classmethod
+    def get_strategy(cls):
+        with transaction.atomic():
+            val = cls.objects.select_for_update().first()
+            return val.strategy
+
+    @classmethod
+    def set_strategy(cls, new_val):
+        val = cls.objects.select_for_update().first()
+        val.strategy = new_val
+        val.save()        
+
+    @classmethod
     def get_running(cls):
         with transaction.atomic():
             val = cls.objects.select_for_update().first()
             return val.is_running
+
     @classmethod
     def set_running(cls, new_val):
         with transaction.atomic():
@@ -139,8 +167,29 @@ class Execution(models.Model):
 
 # Self-production: PV, batteries
 
-class EnergyStorage(models.Model):
-    capacity = models.IntegerField(help_text="Battery capacity (W)")
+class BatteryStorageSystem(models.Model):
+    appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE)
+    power_capacity = models.IntegerField(help_text="Rated power capacity (W)")
+    total_energy_capacity = models.IntegerField(help_text="Total energy capacity (Wh)")
+    current_energy_available = models.IntegerField(default=0)
+    depth_of_discharge = models.FloatField(help_text="Depth-of-Discharge (%)")
+    # solar_only = models.BooleanField(help_text="Charge exclusively with solar")
+    # round_trip_efficiency = models.FloatField(help_text="AC-AC or DC-DC efficiency (%)")
+    # storage duration = energy capacity / power capacity
+
+class BatteryUsage(models.Model):
+    system = models.ForeignKey(BatteryStorageSystem, on_delete=models.CASCADE)
+    start_time = models.DateTimeField(null=True, blank=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    power_used = models.IntegerField()
+
+    def save(self, *args, **kwargs):
+        if not self.system and BatteryStorageSystem.objects.first() is not None:
+            self.system = BatteryStorageSystem.objects.first()
+        super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['system', 'start_time'], name='unique_system_start_time')]
 
 class PhotovoltaicSystem(models.Model):
     latitude = models.FloatField()
@@ -155,6 +204,11 @@ class ProductionData(models.Model):
     month = models.CharField(choices=month_name.choices, max_length=9)
     hour = models.IntegerField()
     average_power_generated = models.IntegerField()
+
+    def save(self, *args, **kwargs):
+        if not self.system and PhotovoltaicSystem.objects.last() is not None:
+            self.system = PhotovoltaicSystem.objects.last()
+        super().save(*args, **kwargs)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['system', 'month', 'hour'], name='unique_system_hourly_value')]

@@ -7,6 +7,9 @@ IMMEDIATE = 0
 NORMAL = 1
 LOW_PRIORITY = 2
 
+SIMPLE = 0
+TIME_BAND = 1
+
 SCHEDULABILITY_OPTIONS = [
     (INTERRUPTIBLE, 'Interruptible'),
     (NONINTERRUPTIBLE, 'Non-interruptible')
@@ -16,4 +19,9 @@ PRIORITY_OPTIONS = [
     (IMMEDIATE, "Immediate"),
     (NORMAL, "Normal"),
     (LOW_PRIORITY, "Low-priority"),
+]
+
+STRATEGY_OPTIONS = [
+    (SIMPLE, "Simple"),
+    (TIME_BAND, "Prioritize low-demand hours, avoid periods of high demand")
 ]
