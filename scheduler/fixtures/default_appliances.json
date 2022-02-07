@@ -251,6 +251,17 @@
       }
    },
    {
+      "model":"scheduler.profile",
+      "pk":21,
+      "fields":{
+         "name":"EV Charger",
+         "schedulability":1,
+         "priority":2,
+         "maximum_delay":"04:00:00",
+         "rated_power":7400
+      }
+   },
+   {
       "model":"scheduler.appliance",
       "pk":1,
       "fields":{
@@ -352,6 +363,15 @@
    {
       "model":"scheduler.appliance",
       "pk":12,
+      "fields":{
+         "name":"Electric Vehicle",
+         "profile":[21],
+         "maximum_duration_of_usage":"08:00:00"
+      }
+   },
+   {
+      "model":"scheduler.appliance",
+      "pk":13,
       "fields":{
          "name":"[DEBUG] 5 secs execution",
          "profile":[13],
