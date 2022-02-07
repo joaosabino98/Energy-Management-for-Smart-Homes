@@ -6,7 +6,7 @@ from apscheduler.triggers.cron import CronTrigger
 import processor.apsched as aps
 
 from scheduler.settings import IMMEDIATE, INTERRUPTIBLE, LOW_PRIORITY, NORMAL
-from scheduler.models import AppVals, Appliance, Execution
+from scheduler.models import AppVals, Execution
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 django.setup()
@@ -79,6 +79,7 @@ def get_maximum_consumption_within(start_time, end_time, queryset=None):
 def get_positive_energy_difference(rated_power, target_power):
 	return rated_power - target_power if rated_power < target_power else float("inf")
 
+#TODO: replace with get_all_available_execution_times + choose_execution_time
 def get_available_execution_time(execution, minimum_start_time=timezone.now()):
 	unfinished = get_unfinished_executions()
 	remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
@@ -153,7 +154,8 @@ def schedule_execution(execution, debug=False):
 		return 1
 	else:
 		print("Unable to activate immediately. Attempting to shift lower priority running executions...")
-		if (shift_executions(execution, now, debug) is True):
+		success = shift_executions(execution, now, debug)
+		if (success is True):
 			return 2
 		else:
 			print("Unable to shift running executions.")
@@ -238,7 +240,8 @@ def anticipate_high_priority_executions(debug=False):
 		print(calculate_weighted_priority(execution))
 		if (calculate_weighted_priority(execution) > 7):
 			now = timezone.now()
-			if (shift_executions(execution, now, debug) is False):
+			success = shift_executions(execution, now, debug)
+			if (success is False):
 				print("Unable to anticipate execution.")
 
 def start():

@@ -1,7 +1,7 @@
 # Energy Management for Smart Homes
 
 ## Common commands
-### Go to project folder
+### Go to project root folder
 `cd C:\Users\jsabi\Documents\Tese\home`
 
 ### Create database schema
@@ -10,7 +10,7 @@
 ### Apply schema
 `python manage.py migrate`
 
-### Create admin (jsabi)
+### Create admin
 `python manage.py createsuperuser`
 
 ### Run server
@@ -31,8 +31,7 @@
 ### Clean database and setup sample data (PowerShell script)
 `.\scripts\clean_setup.ps1`
 
-### Test scheduler
-`python manage.py test`
+---
 
 ## Shell tests
 ### Schedule execution
@@ -42,6 +41,7 @@ from scheduler.models import *
 core.start()
 e = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
 core.schedule_execution(e)
+
 e.delete()
 ```
 ### Test execution finish 
@@ -52,27 +52,28 @@ import time
 core.start()
 e = Execution.objects.create(appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=13))
 core.schedule_execution(e)
-while e.status() != "Finished":
-    e = Execution.objects.get(pk=e.id)
-
+time.sleep(6)
+e = Execution.objects.get(pk=e.id)
 assert e.status() == "Finished"
 e.delete()
+
 ```
 
+---
+
 ## General To-do
- * Check APScheduler support for storing jobs in db and resuming on restart (django-apscheduler) - DONE
- * Repopulate schedule daily (APScheduler decorator?) - DONE
- * Update priorities periodically (APScheduler decorator?) - DONE, requires better testing
- * FIX BUG: executions are constantly shifted back and forth because priority is recalculated - DONE
- . Add "previous_progress" field to execution - DONE
- . Don't calculate priority based on maximum wait / arrange deterministically based on current time-request time - DONE
- * Create test_core (test_connector) with current functions, and enable background jobs in core - DONE
- * Include support for energy generators (best way to represent energy addition? average, minimum, time-based?)
- * New scheduling strategies: production-hours-first, battery-consumption-at-peak-hours-first
+ * Add support for energy sources and production data - DONE
+ * Include energy from production in threshold
+ * New scheduling strategies: simple, time-band
+ . Simple: application scheduled to nearest available time
+ . Time-band: accept bands of lower and higher energy consumption
  * UI, etc
+
+---
 
 ## Technical Documentation
 
+<!-- 
 ### Object classes
 
 ### SchedulerManager
@@ -82,32 +83,19 @@ The SchedulerManager receives requests from appliances that need to be executed 
 Each execution has a priority ranging from 1 to 10, where 10 is the highest priority and 1 is the lowest. This priority is calculated when the start request is processed, based on the priority class and maximum delay parameters defined by the user, and updated periodically.
 
 
-
 #### Start request handling logic
 
 When a start request arrives, the script checks if there is enough available power to run the appliance immediately. This option is preferred in situations of low energy demand, 
 
-> Setting: don't start immediately if execution is not interruptible? or don't start immediately if power is above xx% of limit?
-
-#### Energy tracking
-##### Time table
-##### Timeslot definition
-
-#### Appliance lifecycle
-
-### Priority calculation
-#### Update rules
-
----
-
+> Setting: don't start immediately if execution is not interruptible? or don't start immediately if power is above xx% of limit? -->
 
 ### Appliance categorization
 An effective HEMS solution depends on accurate parametrization of appliance behaviour and time sensitiveness. Appliances can be primarily categorized regarding their ability to interrupt and resume their work. Some appliances can stop and resume with little to no loss of progress, such as recent models of washing machines or HVAC. These machines either keep track of their current progress, or perform a single task with continuous output, where an interruption at opportune times is considered acceptable by the user. Appliances within this category are classified as interruptible. On the other hand, appliances that are unable to resume their progress on restart, require a significant amount of energy to go back to the state before shutdown, or simply require continuous execution to achieve a goal, are considered non-interruptible. Examples are the oven, coffee machine, or even the television during an important segment.
-<!-- Non-schedulable appliances aren't really non-schedulable, just non-interruptible, immediate appliances with 0 maximum acceptable delay -->
 
-### Future work
-<!-- Use real power, measured or reported by appliances, or a more accurate estimate based on the consumption profile across time -->
-<!-- Integrate proximity to desired temperature as a criteria for HVAC appliance priority decision -->
+[Priority categorization]
+
+
+In previous iterations of the proposed solution, there was additional separation between schedulable and non-schedulable appliances, regarding their compatibility with a scheduling solution at all. For example, a fridge requires constant execution and regulates its own cooling efficiently. Users typically don't unplug a fridge, at the risk of spoiling food inside. However, a fridge can simply be classified as a non-interruptible appliance with maximum priority and unlimited duration of usage.
 
 ### Scheduling strategy
 
@@ -124,13 +112,22 @@ However, in a house or building, multiple appliances can run simultaneously and 
 [Stochastic scheduling?]
 [Utility Function]
 
+#### Appliance lifecycle
+
+#### Utility function
+<!-- Use deterministic priorities to avoid appliances cycling between on and off? -->
+
+### Multi-house mode
+[Recommendations]
+
 ### Interprocess communication
  - ZeroMQ (pyzmq)
 
+### Future work
+<!-- Use real power, measured or reported by appliances, or a more accurate estimate based on the consumption profile across time -->
+<!-- Integrate proximity to desired temperature as a criteria for HVAC appliance priority decision -->
 
-> Users may decide to terminate the execution of an appliance before the time assumed by the script. 
-
-> Keeping track of available energy resources, managing execution lifecycles and updating relative priorities.
+---
 
 ### Useful links / papers
 
