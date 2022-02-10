@@ -62,11 +62,13 @@ e.delete()
 ---
 
 ## General To-do
- * Add support for energy sources and production data - DONE
- * Include energy from production in threshold
  * New scheduling strategies: simple, time-band
  . Simple: application scheduled to nearest available time
  . Time-band: accept bands of lower and higher energy consumption
+ * Include PV/BESS in consumption threshold
+ * Implement get_all_available_execution_times and choose_execution_time, based on scheduling strategy
+ * Implement multi-house mode recommendations in choose_execution_time
+ * Create tests for anticipate_pending_executions and anticipate_high_priority_executions
  * UI, etc
 
 ---
@@ -116,6 +118,10 @@ However, in a house or building, multiple appliances can run simultaneously and 
 
 #### Utility function
 <!-- Use deterministic priorities to avoid appliances cycling between on and off? -->
+
+### Solar energy representation
+[PVWatts]
+[hourly averages for each month, calculated for location coordinates based on European data]
 
 ### Multi-house mode
 [Recommendations]
