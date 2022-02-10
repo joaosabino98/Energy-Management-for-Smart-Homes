@@ -10,12 +10,12 @@
       }
    },
    {
-      "model":"scheduler.batterystoragestystem",
+      "model":"scheduler.batterystoragesystem",
       "pk":1,
       "fields":{
          "power_capacity":1000,
          "total_energy_capacity":4000,
-         "current_energy_capacity":4000,
+         "current_energy_available":4000,
          "depth_of_discharge":90
       }
    },
@@ -338,8 +338,7 @@
       "pk":9,
       "fields":{
          "name":"Fridge",
-         "profile":[6],
-         "maximum_duration_of_usage":"1 00:00:00"
+         "profile":[6]
       }
    },
    {

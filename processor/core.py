@@ -5,7 +5,7 @@ from django.utils import timezone
 from apscheduler.triggers.cron import CronTrigger
 import processor.apsched as aps
 
-from scheduler.settings import IMMEDIATE, INTERRUPTIBLE, LOW_PRIORITY, NORMAL
+from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, NORMAL
 from scheduler.models import AppVals, Execution
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
@@ -82,10 +82,14 @@ def get_positive_energy_difference(rated_power, target_power):
 #TODO: replace with get_all_available_execution_times + choose_execution_time
 def get_available_execution_time(execution, minimum_start_time=timezone.now()):
 	unfinished = get_unfinished_executions()
-	remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
 	proposed_start_time = minimum_start_time
+	if (execution.appliance.maximum_duration_of_usage is not None):
+		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
+		proposed_end_time = proposed_start_time + remaining_execution_time
+	else:
+		proposed_end_time = INF_DATE
 	for ending_execution in unfinished:
-		running = get_running_executions_within(proposed_start_time, proposed_start_time + remaining_execution_time)
+		running = get_running_executions_within(proposed_start_time, proposed_end_time)
 		power_consumption = 0
 		for running_execution in running:
 			power_consumption += running_execution.profile.rated_power
@@ -107,7 +111,7 @@ def get_reference_times_within(start_time, end_time, queryset=None):
 	for execution in queryset:
 		if execution.start_time >= start_time:
 			time_list.append(execution.start_time)
-		if execution.end_time <= end_time:
+		if execution.end_time is not None and execution.end_time <= end_time:
 			time_list.append(execution.end_time)
 	time_list.sort()
 	return time_list
@@ -124,11 +128,12 @@ def start_execution(execution, start_time=None, debug=False):
 			id=str(execution.id) + "_start",
 			max_instances=1,
 			replace_existing=True)
-		bgsched.add_job(finish_execution_job, 'date', [execution.id],
-			id=str(execution.id) + "_finish",
-			run_date=execution.end_time,
-			max_instances=1,
-			replace_existing=True)
+		if execution.end_time is not None:
+			bgsched.add_job(finish_execution_job, 'date', [execution.id],
+				id=str(execution.id) + "_finish",
+				run_date=execution.end_time,
+				max_instances=1,
+				replace_existing=True)
 	print("Execution of " + execution.appliance.name + " starting at " + execution.start_time.strftime("%m/%d/%Y, %H:%M:%S."))
 
 def interrupt_execution(execution):
@@ -159,8 +164,12 @@ def schedule_execution(execution, debug=False):
 			return 2
 		else:
 			print("Unable to shift running executions.")
-			start_execution(execution, available_time, debug)
-			return 3
+			if (available_time != INF_DATE):
+				start_execution(execution, available_time, debug)
+				return 3
+			else:
+				print("Unable to schedule execution. Consider raising threshold or manually stopping appiances.")
+				return 4
 
 def schedule_later(execution, debug=False):
 	now = timezone.now()
@@ -170,8 +179,12 @@ def schedule_later(execution, debug=False):
 def shift_executions(execution, start_time, debug=False):
 	priority = calculate_weighted_priority(execution)
 	rated_power = execution.profile.rated_power
-	remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
-	result, interrupted = interrupt_shiftable_executions(start_time, start_time + remaining_execution_time, rated_power, priority)
+	if (execution.appliance.maximum_duration_of_usage is not None):
+		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
+		end_time = start_time + remaining_execution_time
+	else:
+		end_time = INF_DATE
+	result, interrupted = interrupt_shiftable_executions(start_time, end_time, rated_power, priority)
 	if (result == True):
 		print("Lower priority running executions found.")
 		start_execution(execution, None, debug)

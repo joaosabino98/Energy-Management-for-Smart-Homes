@@ -1,6 +1,7 @@
 from django.db import models, transaction
-from .settings import PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
+from .settings import INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
 from django.utils import timezone
+from math import floor
 
 # Create your models here.
 
@@ -87,9 +88,9 @@ Added by the user.
 May require switching the profile for different uses.
 '''
 class Appliance(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     profile = models.ManyToManyField(Profile)
-    maximum_duration_of_usage = models.DurationField(default=timezone.timedelta(seconds=7200))
+    maximum_duration_of_usage = models.DurationField(null=True)
 
     def __str__(self):
         return self.name
@@ -119,7 +120,10 @@ class Execution(models.Model):
     def start(self):
         with transaction.atomic():
             self.start_time = timezone.now()
-            self.end_time = self.start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
+            if self.appliance.maximum_duration_of_usage is not None:
+                self.end_time = self.start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
+            else:
+                self.end_time = INF_DATE
             self.is_started = True
             self.save()
 
@@ -148,7 +152,10 @@ class Execution(models.Model):
     def set_start_time(self, start_time):
         with transaction.atomic():
             self.start_time = start_time
-            self.end_time = start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
+            if self.appliance.maximum_duration_of_usage is not None:
+                self.end_time = self.start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
+            else:
+                self.end_time = INF_DATE
             self.save()
 
     def status(self):
@@ -165,22 +172,45 @@ class Execution(models.Model):
         request_time = self.request_time.strftime("%m/%d/%Y, %H:%M:%S")
         return f"Execution of {self.appliance.name} requested at {request_time}. Status: {self.status()}"
 
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['appliance', 'profile', 'start_time'], name='unique_appliance_start_time')]
+
 # Self-production: PV, batteries
 
 class BatteryStorageSystem(models.Model):
-    appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE)
+    appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE, null=True)
     power_capacity = models.IntegerField(help_text="Rated power capacity (W)")
     total_energy_capacity = models.IntegerField(help_text="Total energy capacity (Wh)")
-    current_energy_available = models.IntegerField(default=0)
+    current_energy_available = models.IntegerField(blank=True)
     depth_of_discharge = models.FloatField(help_text="Depth-of-Discharge (%)")
     # solar_only = models.BooleanField(help_text="Charge exclusively with solar")
     # round_trip_efficiency = models.FloatField(help_text="AC-AC or DC-DC efficiency (%)")
     # storage duration = energy capacity / power capacity
 
-class BatteryUsage(models.Model):
-    system = models.ForeignKey(BatteryStorageSystem, on_delete=models.CASCADE)
-    start_time = models.DateTimeField(null=True, blank=True)
-    end_time = models.DateTimeField(null=True, blank=True)
+    def save(self, *args, **kwargs):
+        if not self.current_energy_available:
+            self.current_energy_available = self.total_energy_capacity
+        if not self.appliance:
+            profile = Profile.objects.create(
+                name="BSS Charger",
+                schedulability=INTERRUPTIBLE,
+                priority=LOW_PRIORITY,
+                maximum_delay=timezone.timedelta(days=1),
+                rated_power=self.power_capacity
+            )
+            charge_time = floor(self.total_energy_capacity / self.power_capacity * 3600)
+            self.appliance = Appliance.objects.create(
+                name="Battery Storage System",
+                profile=profile,
+                maximum_duration_of_usage=charge_time
+            )
+        super().save(*args, **kwargs)
+        
+
+class BatteryConsumption(models.Model):
+    system = models.ForeignKey(BatteryStorageSystem, on_delete=models.CASCADE, null=True)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
     power_used = models.IntegerField()
 
     def save(self, *args, **kwargs):
@@ -199,7 +229,7 @@ class PhotovoltaicSystem(models.Model):
     capacity = models.IntegerField(help_text="System name plate capacity (Wdc)")
 
 class ProductionData(models.Model):
-    system = models.ForeignKey(PhotovoltaicSystem, on_delete=models.CASCADE)
+    system = models.ForeignKey(PhotovoltaicSystem, on_delete=models.CASCADE, null=True)
     month_name = models.TextChoices("month_name", "JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER NOVEMBER DECEMBER")
     month = models.CharField(choices=month_name.choices, max_length=9)
     hour = models.IntegerField()

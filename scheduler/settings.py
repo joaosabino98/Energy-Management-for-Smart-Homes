@@ -1,5 +1,8 @@
 # Scheduler variables
 
+from django.utils import timezone
+import zoneinfo
+
 INTERRUPTIBLE = 0
 NONINTERRUPTIBLE = 1
 
@@ -25,3 +28,5 @@ STRATEGY_OPTIONS = [
     (SIMPLE, "Simple"),
     (TIME_BAND, "Prioritize low-demand hours, avoid periods of high demand")
 ]
+
+INF_DATE = timezone.datetime.max.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
