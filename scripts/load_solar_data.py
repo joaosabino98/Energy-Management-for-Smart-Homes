@@ -3,7 +3,8 @@ import django
 import os
 import re
 from math import floor
-from scheduler.models import PhotovoltaicSystem, ProductionData
+from scheduler.models import ProductionData
+from django.utils import timezone
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 django.setup()
@@ -16,7 +17,8 @@ for filename in os.listdir(directory):
         with open(f, newline='') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=',')
             header = next(csv_reader)
-            month = re.sub("[\(\)]", "", header[0]).split()[3]
+            month_name = re.sub("[\(\)]", "", header[0]).split()[3]
+            month = timezone.datetime.strptime(month_name, "%B").month
             for row in csv_reader:
                 watts = floor(float(row[1])*1000)
                 ProductionData.objects.create(month=month, hour=row[0], average_power_generated=watts)

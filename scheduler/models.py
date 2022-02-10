@@ -230,8 +230,8 @@ class PhotovoltaicSystem(models.Model):
 
 class ProductionData(models.Model):
     system = models.ForeignKey(PhotovoltaicSystem, on_delete=models.CASCADE, null=True)
-    month_name = models.TextChoices("month_name", "JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER NOVEMBER DECEMBER")
-    month = models.CharField(choices=month_name.choices, max_length=9)
+    month_name = models.IntegerChoices("MONTH", "JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER NOVEMBER DECEMBER")
+    month = models.IntegerField(choices=month_name.choices)
     hour = models.IntegerField()
     average_power_generated = models.IntegerField()
 
