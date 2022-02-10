@@ -19,5 +19,5 @@ for filename in os.listdir(directory):
             month = re.sub("[\(\)]", "", header[0]).split()[3]
             for row in csv_reader:
                 watts = floor(float(row[1])*1000)
-                ProductionData.objects.create(system=PhotovoltaicSystem.objects.first(), month=month, hour=row[0], average_power_generated=watts)
+                ProductionData.objects.create(month=month, hour=row[0], average_power_generated=watts)
             print(f"Imported data from {filename}.")
