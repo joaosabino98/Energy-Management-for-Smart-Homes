@@ -142,12 +142,12 @@ def interrupt_execution(execution):
 		bgsched.remove_job(f"{execution.id}_finish")
 	print("Execution of " + execution.appliance.name + " interrupted at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
 
-def finish_execution(execution):
+def finish_execution(execution, debug=False):
 	execution.finish()
 	if (bgsched.get_job(f"{execution.id}_finish") is not None):
 		bgsched.remove_job(f"{execution.id}_finish")
 	print("Execution of " + execution.appliance.name + " finished by the user at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
-	anticipate_pending_executions()
+	anticipate_pending_executions(debug)
 
 def schedule_execution(execution, debug=False):
 	now = timezone.now()
@@ -242,7 +242,9 @@ def anticipate_pending_executions(debug=False):
 		print(f"Attempting to anticipate execution {execution.id}.")
 		now = timezone.now()
 		available_time = get_available_execution_time(execution, now)
-		if (available_time < execution.start_time):
+		if (available_time == now):
+			start_execution(execution, None, debug)
+		elif (available_time < execution.start_time):
 			start_execution(execution, available_time, debug)
 		else:
 			print("Unable to anticipate execution.")

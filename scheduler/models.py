@@ -172,8 +172,11 @@ class Execution(models.Model):
         request_time = self.request_time.strftime("%m/%d/%Y, %H:%M:%S")
         return f"Execution of {self.appliance.name} requested at {request_time}. Status: {self.status()}"
 
-    class Meta:
-        constraints = [models.UniqueConstraint(fields=['appliance', 'profile', 'start_time'], name='unique_appliance_start_time')]
+    # class Meta:
+    #     constraints = [
+    #         models.UniqueConstraint(fields=['appliance', 'profile', 'start_time'], name='unique_appliance_start_time'),
+    #         models.UniqueConstraint(fields=['appliance', 'profile', 'request_time'], name='unique_appliance_request_time')
+    #     ]
 
 # Self-production: PV, batteries
 

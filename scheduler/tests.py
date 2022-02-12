@@ -326,7 +326,33 @@ class ComplexSchedulingTestCase(TestCase):
         self.assertEqual(status2, 4)
 
     def test_anticipate_pending_executions(self):
-        pass
+        e1 = Execution.objects.create(appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
+        e2 = Execution.objects.create(appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
+        self.scheduler.schedule_execution(e1)
+        self.scheduler.schedule_execution(e2)
+        e3 = Execution.objects.create(appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=2))
+        e4 = Execution.objects.create(appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=3))
+        e5 = Execution.objects.create(appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=2))
+        e6 = Execution.objects.create(appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=3))
+        e7 = Execution.objects.create(appliance=Appliance.objects.get(pk=4),profile=Profile.objects.get(pk=4))
+        self.scheduler.schedule_execution(e3)
+        self.scheduler.schedule_execution(e4)
+        self.scheduler.schedule_execution(e5)
+        self.scheduler.schedule_execution(e6)
+        self.scheduler.schedule_execution(e7)
+        self.scheduler.finish_execution(e1)
+        e1 = Execution.objects.get(pk=1)
+        e3 = Execution.objects.get(pk=3)
+        e4 = Execution.objects.get(pk=4)
+        e5 = Execution.objects.get(pk=5)
+        e6 = Execution.objects.get(pk=6)
+        e7 = Execution.objects.get(pk=7)
+        self.assertEqual(e1.status(), "Finished")
+        self.assertEqual(e3.status(), "Started")
+        self.assertEqual(e4.status(), "Started")
+        self.assertEqual(e5.status(), "Started")
+        self.assertEqual(e6.status(), "Started")
+        self.assertEqual(e7.status(), "Pending")
 
     def test_anticipate_high_priority_executions(self):
         pass
