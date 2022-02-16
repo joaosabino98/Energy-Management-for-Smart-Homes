@@ -4,9 +4,10 @@ from math import floor, log10
 from django.utils import timezone
 from apscheduler.triggers.cron import CronTrigger
 import processor.apsched as aps
+from processor.external_energy import get_minimum_battery_discharge_within, get_minimum_production_within
 
-from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, NORMAL
-from scheduler.models import AppVals, Execution
+from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, NORMAL, SIMPLE
+from scheduler.models import AppVals, BatteryStorageSystem, Execution
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 django.setup()
@@ -71,29 +72,67 @@ def get_maximum_consumption_within(start_time, end_time, queryset=None):
 		queryset = get_running_executions_within(start_time, end_time)
 	reference_times = get_reference_times_within(start_time, end_time, queryset)
 	for time in reference_times:
-		energy_consumption = get_energy_consumption(time, queryset)
-		if (energy_consumption > peak_consumption):
-			peak_consumption = energy_consumption
+		power_consumption = get_energy_consumption(time, queryset)
+		if (power_consumption > peak_consumption):
+			peak_consumption = power_consumption
 	return peak_consumption
 
 def get_positive_energy_difference(rated_power, target_power):
 	return rated_power - target_power if rated_power < target_power else float("inf")
 
-#TODO: replace with get_all_available_execution_times + choose_execution_time
-def get_available_execution_time(execution, minimum_start_time=timezone.now()):
+def get_energy_available_within(start_time, end_time):
+	threshold = AppVals.get_consumption_threshold()
+	battery_discharge = get_minimum_battery_discharge_within(start_time, end_time)
+	production = get_minimum_production_within(start_time, end_time)
+	if battery_discharge is not None:
+		threshold += battery_discharge
+	if production is not None:
+		threshold += production
+	return threshold
+
+def get_execution_time(execution, minimum_start_time=timezone.now()):
+	pass
+
+def choose_execution_time():
+	pass
+
+def get_available_execution_times(execution, minimum_start_time=timezone.now()):
 	unfinished = get_unfinished_executions()
 	proposed_start_time = minimum_start_time
-	if (execution.appliance.maximum_duration_of_usage is not None):
-		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
-		proposed_end_time = proposed_start_time + remaining_execution_time
-	else:
+	if (execution.appliance.maximum_duration_of_usage is None):
 		proposed_end_time = INF_DATE
+	else:
+		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
 	for ending_execution in unfinished:
+		if (execution.appliance.maximum_duration_of_usage is not None):
+			proposed_end_time = proposed_start_time + remaining_execution_time
 		running = get_running_executions_within(proposed_start_time, proposed_end_time)
 		power_consumption = 0
 		for running_execution in running:
 			power_consumption += running_execution.profile.rated_power
-		if (AppVals.get_consumption_threshold() - power_consumption >= execution.profile.rated_power):
+		if (get_energy_available_within(proposed_start_time, proposed_end_time) - power_consumption >= execution.profile.rated_power):
+			break
+		elif ending_execution.end_time is not None:
+			proposed_start_time = ending_execution.end_time
+
+	return proposed_start_time
+
+#TODO: replace with get_all_available_execution_times + choose_execution_time
+def get_available_execution_time(execution, minimum_start_time=timezone.now()):
+	unfinished = get_unfinished_executions()
+	proposed_start_time = minimum_start_time
+	if (execution.appliance.maximum_duration_of_usage is None):
+		proposed_end_time = INF_DATE
+	else:
+		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
+	for ending_execution in unfinished:
+		if (execution.appliance.maximum_duration_of_usage is not None):
+			proposed_end_time = proposed_start_time + remaining_execution_time
+		running = get_running_executions_within(proposed_start_time, proposed_end_time)
+		power_consumption = 0
+		for running_execution in running:
+			power_consumption += running_execution.profile.rated_power
+		if (get_energy_available_within(proposed_start_time, proposed_end_time) - power_consumption >= execution.profile.rated_power):
 			break
 		elif ending_execution.end_time is not None:
 			proposed_start_time = ending_execution.end_time

@@ -181,7 +181,7 @@ class Execution(models.Model):
 # Self-production: PV, batteries
 
 class BatteryStorageSystem(models.Model):
-    appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE, null=True)
+    appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE, null=True, blank=True)
     power_capacity = models.IntegerField(help_text="Rated power capacity (W)")
     total_energy_capacity = models.IntegerField(help_text="Total energy capacity (Wh)")
     current_energy_available = models.IntegerField(blank=True)
@@ -221,8 +221,8 @@ class BatteryConsumption(models.Model):
             self.system = BatteryStorageSystem.objects.first()
         super().save(*args, **kwargs)
 
-    class Meta:
-        constraints = [models.UniqueConstraint(fields=['system', 'start_time'], name='unique_system_start_time')]
+    # class Meta:
+    #     constraints = [models.UniqueConstraint(fields=['system', 'start_time'], name='unique_system_start_time')]
 
 class PhotovoltaicSystem(models.Model):
     latitude = models.FloatField()
