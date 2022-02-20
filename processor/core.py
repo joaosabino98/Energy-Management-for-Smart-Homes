@@ -4,10 +4,10 @@ from math import floor, log10
 from django.utils import timezone
 from apscheduler.triggers.cron import CronTrigger
 import processor.apsched as aps
-from processor.external_energy import get_minimum_battery_discharge_within, get_minimum_production_within
+from processor.external_energy import get_minimum_battery_power_discharge_within, get_minimum_production_within
 
-from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, NORMAL, SIMPLE
-from scheduler.models import AppVals, BatteryStorageSystem, Execution
+from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, NORMAL
+from scheduler.models import AppVals, Execution
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 django.setup()
@@ -82,7 +82,7 @@ def get_positive_energy_difference(rated_power, target_power):
 
 def get_energy_available_within(start_time, end_time):
 	threshold = AppVals.get_consumption_threshold()
-	battery_discharge = get_minimum_battery_discharge_within(start_time, end_time)
+	battery_discharge = get_minimum_battery_power_discharge_within(start_time, end_time)
 	production = get_minimum_production_within(start_time, end_time)
 	if battery_discharge is not None:
 		threshold += battery_discharge

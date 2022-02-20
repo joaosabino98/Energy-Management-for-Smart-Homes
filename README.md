@@ -68,8 +68,31 @@ e.delete()
  * Include PV/BESS in consumption threshold
  * Implement get_all_available_execution_times and choose_execution_time, based on scheduling strategy
  * Implement multi-house mode recommendations in choose_execution_time
- * Create tests for anticipate_pending_executions and anticipate_high_priority_executions
  * UI, etc
+
+### Battery storage logic
+
+1. manage battery charging
+- on simple:
+    * if solar panel energy available, charge during solar hours
+    * if no solar energy, charge whenever consumption < 40%?
+- on time-band:
+    * if solar panel energy available, charge during solar hours
+    * if no solar energy, charge during low hours
+
+2. manage battery consumption
+- on simple:
+    * schedule whenever consumption > 80%
+- on time-band:
+    * during high hours, schedule whenever consumption > power output during high hours
+    * during average hours, schedule whenever consumption > 80%
+
+How to manage charge status?
+Battery can't discharge and charge at the same time.
+Battery may not be fully discharged over day.
+ - use last full charge-discharge data to calculate energy needed in next recharge
+ - schedule charge every midnight / when energy is depleted?
+ - can't schedule discharges if charge is underway/incomplete
 
 ---
 

@@ -15,7 +15,6 @@
       "fields":{
          "power_capacity":1000,
          "total_energy_capacity":4000,
-         "current_energy_available":4000,
          "depth_of_discharge":90
       }
    },

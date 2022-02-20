@@ -25,31 +25,60 @@ def get_battery_reference_times_within(start_time, end_time):
     time_list.sort()
     return time_list
 
-def get_battery_discharge(time):
+# start by just subtracting energy from discharges after last charge
+def get_battery_energy_available(time):
+    energy = None
+    if (BatteryStorageSystem.get_system() is not None):
+        battery = BatteryStorageSystem.get_system()
+        last_charge_time = battery.last_full_charge_time
+        queryset = get_battery_discharge_within(last_charge_time, time)
+        energy = battery.total_energy_capacity
+        for discharge in queryset:
+            consumption = floor((discharge.end_time - discharge.start_time).seconds / 3600 * discharge.power_used)
+            energy -= consumption
+    return energy
+
+def get_battery_power_discharge(time):
     power = 0
     queryset = get_battery_discharge_within(time, time)
     for discharge in queryset:
         power += discharge.power_used
     return power
 
-def get_minimum_battery_discharge_within(start_time, end_time):
+def get_minimum_battery_power_discharge_within(start_time, end_time):
     minimum_discharge = None
-    if (BatteryStorageSystem.objects.exists()):
+    if (BatteryStorageSystem.get_system() is not None):
         reference_times = get_battery_reference_times_within(start_time, end_time)
         for time in reference_times:
-            power_discharge = get_battery_discharge(time)
+            power_discharge = get_battery_power_discharge(time)
             if minimum_discharge is None or power_discharge < minimum_discharge:
                 minimum_discharge = power_discharge
     return minimum_discharge
 
-def manage_battery_charge_cycle():
-    pass
+# def get_maximum_battery_power_discharge_within(start_time, end_time):
+#     maximum_discharge = 0
+#     if (BatteryStorageSystem.get_system() is not None):
+#         reference_times = get_battery_reference_times_within(start_time, end_time)
+#         for time in reference_times:
+#             power_discharge = get_battery_power_discharge(time)
+#             if power_discharge > maximum_discharge:
+#                 maximum_discharge = power_discharge
+#     return maximum_discharge
 
-def schedule_battery_charge(bss, start_time, end_time, power):
-    pass
+# total - maximum_power_discharge_within
+# if energy available is enough?
+# is this useful?
+# def get_available_battery_charge(start_time, end_time):
+#     pass
 
-def schedule_battery_discharge(bss, start_time, end_time, power):
-    pass
+# def manage_battery_charge_cycle():
+#     pass
+
+# def schedule_battery_charge(start_time, end_time, power):
+#     pass
+
+# def schedule_battery_discharge(start_time, end_time, power):
+#     pass
 
 # def get_production_data_within(start_time, end_time):
 #     data = ProductionData.objects.filter(month__lte=end_time.month).filter(month__gte=start_time.month)

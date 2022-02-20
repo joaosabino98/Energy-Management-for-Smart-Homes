@@ -184,15 +184,24 @@ class BatteryStorageSystem(models.Model):
     appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE, null=True, blank=True)
     power_capacity = models.IntegerField(help_text="Rated power capacity (W)")
     total_energy_capacity = models.IntegerField(help_text="Total energy capacity (Wh)")
-    current_energy_available = models.IntegerField(blank=True)
+    last_full_charge_time = models.DateTimeField(default=timezone.now) # get from appliance execution?
     depth_of_discharge = models.FloatField(help_text="Depth-of-Discharge (%)")
     # solar_only = models.BooleanField(help_text="Charge exclusively with solar")
     # round_trip_efficiency = models.FloatField(help_text="AC-AC or DC-DC efficiency (%)")
     # storage duration = energy capacity / power capacity
 
+    @classmethod
+    def get_system(cls):
+        with transaction.atomic():
+            val = cls.objects.select_for_update().first()
+            return val
+
+    def set_last_full_charge_time(self, last_full_charge_time=timezone.now):
+        with transaction.atomic():
+            self.last_full_charge_time = last_full_charge_time
+            self.save()
+
     def save(self, *args, **kwargs):
-        if not self.current_energy_available:
-            self.current_energy_available = self.total_energy_capacity
         if not self.appliance:
             profile = Profile.objects.create(
                 name="BSS Charger",
@@ -211,14 +220,17 @@ class BatteryStorageSystem(models.Model):
         
 
 class BatteryConsumption(models.Model):
-    system = models.ForeignKey(BatteryStorageSystem, on_delete=models.CASCADE, null=True)
+    system = models.ForeignKey(BatteryStorageSystem, on_delete=models.CASCADE, null=True, blank=True)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
     power_used = models.IntegerField()
 
     def save(self, *args, **kwargs):
-        if not self.system and BatteryStorageSystem.objects.first() is not None:
-            self.system = BatteryStorageSystem.objects.first()
+        system = BatteryStorageSystem.get_system()
+        if system is not None:
+            self.system = system
+        else:
+            raise NoBSSystemException("Battery Storage System is not defined.")
         super().save(*args, **kwargs)
 
     # class Meta:
@@ -231,17 +243,32 @@ class PhotovoltaicSystem(models.Model):
     azimut = models.IntegerField()
     capacity = models.IntegerField(help_text="System name plate capacity (Wdc)")
 
+    @classmethod
+    def get_system(cls):
+        with transaction.atomic():
+            val = cls.objects.select_for_update().first()
+            return val
+
 class ProductionData(models.Model):
-    system = models.ForeignKey(PhotovoltaicSystem, on_delete=models.CASCADE, null=True)
+    system = models.ForeignKey(PhotovoltaicSystem, on_delete=models.CASCADE, null=True, blank=True)
     month_name = models.IntegerChoices("MONTH", "JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER NOVEMBER DECEMBER")
     month = models.IntegerField(choices=month_name.choices)
     hour = models.IntegerField()
     average_power_generated = models.IntegerField()
 
     def save(self, *args, **kwargs):
-        if not self.system and PhotovoltaicSystem.objects.last() is not None:
-            self.system = PhotovoltaicSystem.objects.last()
+        system = PhotovoltaicSystem.get_system()
+        if system is not None:
+            self.system = system
+        else: 
+            raise NoPVSystemException("Photovoltaic System is not defined.")
         super().save(*args, **kwargs)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['system', 'month', 'hour'], name='unique_system_hourly_value')]
+
+class NoBSSystemException(Exception):
+    pass
+
+class NoPVSystemException(Exception):
+    pass
