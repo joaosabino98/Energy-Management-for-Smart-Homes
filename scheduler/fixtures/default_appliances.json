@@ -13,8 +13,9 @@
       "model":"scheduler.batterystoragesystem",
       "pk":1,
       "fields":{
-         "power_capacity":1000,
-         "total_energy_capacity":4000,
+         "maximum_power_transfer":5500,
+         "slow_charging_power": 1800,
+         "total_energy_capacity":18000,
          "depth_of_discharge":90
       }
    },
@@ -265,7 +266,7 @@
       "pk":1,
       "fields":{
          "name":"Television (Living Room)",
-         "profile":[20],
+         "profiles":[20],
          "maximum_duration_of_usage":"08:00:00"
       }
    },
@@ -274,7 +275,7 @@
       "pk":2,
       "fields":{
          "name":"Microwave",
-         "profile":[1,2,3],
+         "profiles":[1,2,3],
          "maximum_duration_of_usage":"00:20:00"
       }
    },
@@ -283,7 +284,7 @@
       "pk":3,
       "fields":{
          "name":"Oven",
-         "profile":[4],
+         "profiles":[4],
          "maximum_duration_of_usage":"01:00:00"
       }
    },
@@ -292,7 +293,7 @@
       "pk":4,
       "fields":{
          "name":"Heater (Bedroom)",
-         "profile":[17],
+         "profiles":[17],
          "maximum_duration_of_usage":"01:30:00"
       }
    },
@@ -301,7 +302,7 @@
       "pk":5,
       "fields":{
          "name":"Water Heater",
-         "profile":[19],
+         "profiles":[19],
          "maximum_duration_of_usage":"03:00:00"
       }
    },
@@ -310,7 +311,7 @@
       "pk":6,
       "fields":{
          "name":"Washing Machine",
-         "profile":[10,11],
+         "profiles":[10,11],
          "maximum_duration_of_usage":"01:00:00"
       }
    },
@@ -319,7 +320,7 @@
       "pk":7,
       "fields":{
          "name":"Dishwasher",
-         "profile":[7,8,9],
+         "profiles":[7,8,9],
          "maximum_duration_of_usage":"01:00:00"
       }
    },
@@ -328,7 +329,7 @@
       "pk":8,
       "fields":{
          "name":"Air Conditioner",
-         "profile":[5],
+         "profiles":[5],
          "maximum_duration_of_usage":"04:00:00"
       }
    },
@@ -337,7 +338,7 @@
       "pk":9,
       "fields":{
          "name":"Fridge",
-         "profile":[6]
+         "profiles":[6]
       }
    },
    {
@@ -345,7 +346,7 @@
       "pk":10,
       "fields":{
          "name":"Coffee Machine",
-         "profile":[13],
+         "profiles":[13],
          "maximum_duration_of_usage":"00:15:00"
       }
    },
@@ -354,7 +355,7 @@
       "pk":11,
       "fields":{
          "name":"Vacuum Cleaner",
-         "profile":[12],
+         "profiles":[12],
          "maximum_duration_of_usage":"00:30:00"
       }
    },
@@ -363,7 +364,7 @@
       "pk":12,
       "fields":{
          "name":"Electric Vehicle",
-         "profile":[21],
+         "profiles":[21],
          "maximum_duration_of_usage":"08:00:00"
       }
    },
@@ -372,7 +373,7 @@
       "pk":13,
       "fields":{
          "name":"[DEBUG] 5 secs execution",
-         "profile":[13],
+         "profiles":[13],
          "maximum_duration_of_usage":"00:00:05"
       }
    }

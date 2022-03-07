@@ -89,7 +89,7 @@ May require switching the profile for different uses.
 '''
 class Appliance(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    profile = models.ManyToManyField(Profile)
+    profiles = models.ManyToManyField(Profile)
     maximum_duration_of_usage = models.DurationField(null=True)
 
     def __str__(self):
@@ -182,8 +182,9 @@ class Execution(models.Model):
 
 class BatteryStorageSystem(models.Model):
     appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE, null=True, blank=True)
-    power_capacity = models.IntegerField(help_text="Rated power capacity (W)")
     total_energy_capacity = models.IntegerField(help_text="Total energy capacity (Wh)")
+    maximum_power_transfer = models.IntegerField(help_text="Maximum power input/output (W)")
+    slow_charging_power = models.IntegerField(help_text="Slow charging power (W)")
     last_full_charge_time = models.DateTimeField(default=timezone.now) # get from appliance execution?
     depth_of_discharge = models.FloatField(help_text="Depth-of-Discharge (%)")
     # solar_only = models.BooleanField(help_text="Charge exclusively with solar")
@@ -203,17 +204,9 @@ class BatteryStorageSystem(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.appliance:
-            profile = Profile.objects.create(
-                name="BSS Charger",
-                schedulability=INTERRUPTIBLE,
-                priority=LOW_PRIORITY,
-                maximum_delay=timezone.timedelta(days=1),
-                rated_power=self.power_capacity
-            )
-            charge_time = floor(self.total_energy_capacity / self.power_capacity * 3600)
+            charge_time = floor(self.total_energy_capacity / self.maximum_power_transfer * 3600)
             self.appliance = Appliance.objects.create(
                 name="Battery Storage System",
-                profile=profile,
                 maximum_duration_of_usage=charge_time
             )
         super().save(*args, **kwargs)

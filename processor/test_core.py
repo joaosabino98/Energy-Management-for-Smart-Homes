@@ -28,14 +28,14 @@ def get_running_executions_within(start_time, end_time):
 def get_lower_priority_shiftable_executions_within(start_time, end_time, target_power, target_priority):
     return core.get_lower_priority_shiftable_executions_within(start_time, end_time, target_power, target_priority)
 
-def get_energy_consumption(time, queryset=None):
-    return core.get_energy_consumption(time, queryset)
+def get_power_consumption(time, queryset=None):
+    return core.get_power_consumption(time, queryset)
 
 def get_maximum_consumption_within(start_time, end_time, queryset=None):
     return core.get_maximum_consumption_within(start_time, end_time, queryset)
 
-def get_positive_energy_difference(rated_power, target_power):
-    return core.get_positive_energy_difference(rated_power, target_power)
+def get_positive_power_difference(rated_power, target_power):
+    return core.get_positive_power_difference(rated_power, target_power)
 
 def get_available_execution_time(execution, minimum_start_time=timezone.now()):
     return get_available_execution_time(execution, minimum_start_time)
@@ -43,8 +43,8 @@ def get_available_execution_time(execution, minimum_start_time=timezone.now()):
 def get_available_fractioned_execution_time(execution, minimum_start_time=timezone.now()):
     return get_available_fractioned_execution_time(execution, minimum_start_time)
 
-def get_reference_times_within(start_time, end_time, queryset=None):
-    return get_reference_times_within(start_time, end_time, queryset)
+def get_consumption_reference_times_within(start_time, end_time, queryset=None):
+    return get_consumption_reference_times_within(start_time, end_time, queryset)
 
 def start_execution(execution, start_time=None):
     return core.start_execution(execution, start_time, debug=True)

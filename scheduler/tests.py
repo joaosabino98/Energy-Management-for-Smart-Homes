@@ -1,6 +1,6 @@
 from django.test import TestCase, tag
 
-from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, NONINTERRUPTIBLE, NORMAL, SIMPLE
+from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, NONINTERRUPTIBLE, NORMAL, PEAK_SHAVING
 from .models import AppVals, Execution, Appliance, Profile
 import processor.test_core as core
 from django.utils import timezone
@@ -11,13 +11,13 @@ import time
 """ Test the priority formula by simulating executions created at different moments in the past. """
 class PriorityTestCase(TestCase):
     def setUp(self):
-        AppVals.objects.create(consumption_threshold=8000, strategy=SIMPLE, is_running=False)
+        AppVals.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
         self.scheduler = core 
         p1 = Profile.objects.create(name="Low priority profile", schedulability=INTERRUPTIBLE, priority=LOW_PRIORITY, maximum_delay=timezone.timedelta(seconds=43200), rated_power=0)
         p2 = Profile.objects.create(name="Normal priority profile", schedulability=INTERRUPTIBLE, priority=NORMAL, maximum_delay=timezone.timedelta(seconds=3600), rated_power=0)
         p3 = Profile.objects.create(name="Immediate priority profile", schedulability=INTERRUPTIBLE, priority=IMMEDIATE, maximum_delay=timezone.timedelta(seconds=900), rated_power=0)
         a1 = Appliance.objects.create(name="Test")
-        a1.profile.set([p1, p2, p3])
+        a1.profiles.set([p1, p2, p3])
         a1.save()
 
     def test_low_priority_calculation(self):
@@ -77,15 +77,15 @@ class PriorityTestCase(TestCase):
 """ Test execution lifecycle """
 class LifecycleTestCase(TestCase):
     def setUp(self):
-        AppVals.objects.create(consumption_threshold=8000, strategy=SIMPLE, is_running=False)
+        AppVals.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
         self.scheduler = core
         p1 = Profile.objects.create(name="Test 1", schedulability=INTERRUPTIBLE, priority=IMMEDIATE, rated_power=2000)
         a1 = Appliance.objects.create(name="Test 1", maximum_duration_of_usage=timezone.timedelta(seconds=3))
-        a1.profile.add(p1)
+        a1.profiles.set([p1])
 
         p2 = Profile.objects.create(name="Test 2", schedulability=NONINTERRUPTIBLE, priority=NORMAL, rated_power=6000)
         a2 = Appliance.objects.create(name="Test 2")
-        a2.profile.set([p2])
+        a2.profiles.set([p2])
         a2.save()
 
     def test_execution_creation(self):
@@ -153,15 +153,15 @@ class LifecycleTestCase(TestCase):
 
 class FullSchedulingTestCase(TestCase):
     def setUp(self):
-        AppVals.objects.create(consumption_threshold=8000, strategy=SIMPLE, is_running=False)
+        AppVals.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
         self.scheduler = core
         p1 = Profile.objects.create(name="Test 1", schedulability=INTERRUPTIBLE, priority=NORMAL, rated_power=2000)
         a1 = Appliance.objects.create(name="Test 1", maximum_duration_of_usage=timezone.timedelta(seconds=7200))
-        a1.profile.set([p1])
+        a1.profiles.set([p1])
         a1.save()        
         p2 = Profile.objects.create(name="Test 2", schedulability=INTERRUPTIBLE, priority=IMMEDIATE, rated_power=400)
         a2 = Appliance.objects.create(name="Test 2", maximum_duration_of_usage=timezone.timedelta(seconds=300))
-        a2.profile.set([p2])
+        a2.profiles.set([p2])
         a2.save() 
         # Fill whole schedule (assuming 8000W threshold)
         e1 = Execution.objects.create(appliance=a1,profile=p1)
@@ -214,32 +214,32 @@ class FullSchedulingTestCase(TestCase):
 
 class ComplexSchedulingTestCase(TestCase):
     def setUp(self):
-        AppVals.objects.create(consumption_threshold=8000, strategy=SIMPLE, is_running=False)
+        AppVals.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
         self.scheduler = core
         p1 = Profile.objects.create(name="Test 1", schedulability=NONINTERRUPTIBLE, priority=NORMAL,
             maximum_delay=timezone.timedelta(seconds=3600), rated_power=4000)
         a1 = Appliance.objects.create(name="Test 1", maximum_duration_of_usage=timezone.timedelta(seconds=7200))
-        a1.profile.set([p1])
+        a1.profiles.set([p1])
         a1.save()
         p2 = Profile.objects.create(name="Test 2", schedulability=INTERRUPTIBLE, priority=NORMAL,
             maximum_delay=timezone.timedelta(seconds=3000), rated_power=1600)
         a2 = Appliance.objects.create(name="Test 2", maximum_duration_of_usage=timezone.timedelta(seconds=3600))
-        a2.profile.set([p2])
+        a2.profiles.set([p2])
         a2.save()
         p3 = Profile.objects.create(name="Test 3", schedulability=INTERRUPTIBLE, priority=IMMEDIATE,
             maximum_delay=timezone.timedelta(seconds=300), rated_power=400)
         a3 = Appliance.objects.create(name="Test 3", maximum_duration_of_usage=timezone.timedelta(seconds=300))
-        a3.profile.set([p3])
+        a3.profiles.set([p3])
         a3.save()
         p4 = Profile.objects.create(name="Test 4", schedulability=INTERRUPTIBLE, priority=LOW_PRIORITY,
             maximum_delay=timezone.timedelta(seconds=14400), rated_power=2000)
         a4 = Appliance.objects.create(name="Test 4", maximum_duration_of_usage=timezone.timedelta(seconds=3000))
-        a4.profile.set([p4])
+        a4.profiles.set([p4])
         a4.save()
         p5 = Profile.objects.create(name="Test 5", schedulability=NONINTERRUPTIBLE, priority=NORMAL,
             maximum_delay=timezone.timedelta(seconds=3000), rated_power=6000)
         a5 = Appliance.objects.create(name="Test 5")
-        a5.profile.set([p5])
+        a5.profiles.set([p5])
         a5.save()
 
     def test_simple_scheduling(self):
