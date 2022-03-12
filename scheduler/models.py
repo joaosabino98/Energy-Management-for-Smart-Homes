@@ -2,6 +2,8 @@ from django.db import models, transaction
 from .settings import INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
 from django.utils import timezone
 from math import floor
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 # Create your models here.
 
@@ -77,6 +79,7 @@ class Profile(models.Model):
     )
     maximum_delay = models.DurationField(default=timezone.timedelta(seconds=3600))
     rated_power = models.IntegerField(help_text="Rated power (W)")
+    hidden = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
@@ -183,13 +186,9 @@ class Execution(models.Model):
 class BatteryStorageSystem(models.Model):
     appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE, null=True, blank=True)
     total_energy_capacity = models.IntegerField(help_text="Total energy capacity (Wh)")
-    maximum_power_transfer = models.IntegerField(help_text="Maximum power input/output (W)")
-    slow_charging_power = models.IntegerField(help_text="Slow charging power (W)")
-    last_full_charge_time = models.DateTimeField(default=timezone.now) # get from appliance execution?
+    continuous_power = models.IntegerField(help_text="Continuous charge/discharge power (W)")
+    last_full_charge_time = models.DateTimeField(default=timezone.now)
     depth_of_discharge = models.FloatField(help_text="Depth-of-Discharge (%)")
-    # solar_only = models.BooleanField(help_text="Charge exclusively with solar")
-    # round_trip_efficiency = models.FloatField(help_text="AC-AC or DC-DC efficiency (%)")
-    # storage duration = energy capacity / power capacity
 
     @classmethod
     def get_system(cls):
@@ -202,32 +201,26 @@ class BatteryStorageSystem(models.Model):
             self.last_full_charge_time = last_full_charge_time
             self.save()
 
-    def save(self, *args, **kwargs):
-        if not self.appliance:
-            charge_time = floor(self.total_energy_capacity / self.maximum_power_transfer * 3600)
-            self.appliance = Appliance.objects.create(
-                name="Battery Storage System",
-                maximum_duration_of_usage=charge_time
-            )
-        super().save(*args, **kwargs)
-        
+    # def save(self, *args, **kwargs):
+    #     if not self.appliance:
+    #         charge_time = timezone.timedelta(seconds=floor(self.total_energy_capacity / self.continuous_power * 3600))
+    #         self.appliance = Appliance.objects.create(
+    #             name="Battery Storage System",
+    #             maximum_duration_of_usage=charge_time
+    #         )
+    #     super().save(*args, **kwargs)
 
-class BatteryConsumption(models.Model):
-    system = models.ForeignKey(BatteryStorageSystem, on_delete=models.CASCADE, null=True, blank=True)
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
-    power_used = models.IntegerField()
-
-    def save(self, *args, **kwargs):
-        system = BatteryStorageSystem.get_system()
-        if system is not None:
-            self.system = system
-        else:
-            raise NoBSSystemException("Battery Storage System is not defined.")
-        super().save(*args, **kwargs)
-
-    # class Meta:
-    #     constraints = [models.UniqueConstraint(fields=['system', 'start_time'], name='unique_system_start_time')]
+@receiver(post_save, sender=BatteryStorageSystem, dispatch_uid="create_bss_appliance")
+def create_bss_appliance(sender, instance, created, **kwargs):
+    if created:
+        charge_time = timezone.timedelta(seconds=floor(instance.total_energy_capacity / instance.continuous_power * 3600))
+        instance.appliance, _ = Appliance.objects.get_or_create(
+                    name="Battery Storage System",
+                    defaults={
+                        "maximum_duration_of_usage": charge_time
+                    }
+                )
+        instance.save()
 
 class PhotovoltaicSystem(models.Model):
     latitude = models.FloatField()

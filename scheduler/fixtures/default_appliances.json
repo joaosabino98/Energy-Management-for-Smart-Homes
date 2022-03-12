@@ -10,27 +10,6 @@
       }
    },
    {
-      "model":"scheduler.batterystoragesystem",
-      "pk":1,
-      "fields":{
-         "maximum_power_transfer":5500,
-         "slow_charging_power": 1800,
-         "total_energy_capacity":18000,
-         "depth_of_discharge":90
-      }
-   },
-   {
-      "model":"scheduler.photovoltaicsystem",
-      "pk":1,
-      "fields":{
-         "latitude": 38.762,
-         "longitude": -9.155,
-         "tilt": 20,
-         "azimut": 180,
-         "capacity": 6400
-      }
-   },
-   {
       "model":"scheduler.profile",
       "pk":1,
       "fields":{
@@ -375,6 +354,26 @@
          "name":"[DEBUG] 5 secs execution",
          "profiles":[13],
          "maximum_duration_of_usage":"00:00:05"
+      }
+   },
+   {
+      "model":"scheduler.batterystoragesystem",
+      "pk":1,
+      "fields":{
+         "continuous_power":5500,
+         "total_energy_capacity":18000,
+         "depth_of_discharge":90
+      }
+   },
+   {
+      "model":"scheduler.photovoltaicsystem",
+      "pk":1,
+      "fields":{
+         "latitude": 38.762,
+         "longitude": -9.155,
+         "tilt": 20,
+         "azimut": 180,
+         "capacity": 6400
       }
    }
 ]
