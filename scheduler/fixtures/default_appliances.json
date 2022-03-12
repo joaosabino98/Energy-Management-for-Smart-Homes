@@ -362,7 +362,7 @@
       "fields":{
          "continuous_power":5500,
          "total_energy_capacity":18000,
-         "depth_of_discharge":90
+         "depth_of_discharge":0.9
       }
    },
    {

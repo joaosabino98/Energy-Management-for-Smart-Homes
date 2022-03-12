@@ -7,7 +7,7 @@ import processor.apsched as aps
 import processor.external_energy as ext
 
 from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOAD_DISTRIBUTION, LOW_PRIORITY, NORMAL, PEAK_SHAVING, TIME_BAND
-from scheduler.models import AppVals, Execution
+from scheduler.models import AppVals, BatteryStorageSystem, Execution
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 django.setup()
@@ -22,6 +22,12 @@ def finish_execution_job(id):
 	execution = Execution.objects.get(pk=id)
 	if (execution.is_finished is False and execution.is_interrupted is False):
 		execution.set_finished()
+	if (BatteryStorageSystem.compare_appliance(execution.appliance)):
+		battery = BatteryStorageSystem.get_system()
+		energy_stored = ext.get_battery_energy(execution.end_time)
+		if (energy_stored >= battery.total_energy_capacity * 0.99):
+			battery.last_full_charge_time = execution.end_time
+			battery.save()
 	print("Execution of " + execution.appliance.name + " finished by the system at " + timezone.now().strftime("%m/%d/%Y, %H:%M:%S."))
 
 def anticipate_high_priority_executions_job():
@@ -52,7 +58,11 @@ def get_lower_priority_shiftable_executions_within(start_time, end_time, target_
 	for execution in get_running_executions_within(start_time, end_time):
 		priority = calculate_weighted_priority(execution)
 		if (priority < target_priority and execution.profile.schedulability is INTERRUPTIBLE):
-			shiftable_executions.append(execution)
+			if BatteryStorageSystem.compare_appliance(execution.appliance) and execution.profile.rated_power > 0:
+				if ext.is_battery_execution_interruptable(execution):
+					shiftable_executions.append(execution)
+			else:
+				shiftable_executions.append(execution)
 	# sorted_keys = sorted(shiftable_executions, key=lambda e: get_maximum_consumption_within(e.start_time, e.end_time), reverse=True)
 	sorted_keys = sorted(shiftable_executions,
 		key=lambda e: (calculate_weighted_priority(e), get_positive_power_difference(e.profile.rated_power, target_power)))
@@ -232,12 +242,13 @@ def shift_executions(execution, start_time, debug=False):
 		print("Lower priority running executions found.")
 		start_execution(execution, None, debug)
 		for execution in interrupted:
-			new = Execution.objects.create(
-				appliance=execution.appliance,
-				profile=execution.profile,
-				previous_progress_time=execution.end_time-execution.start_time+execution.previous_progress_time,
-				previous_waiting_time=execution.start_time-execution.request_time+execution.previous_waiting_time)
-			schedule_later(new, debug)
+			if not BatteryStorageSystem.compare_appliance(execution.appliance):
+				new = Execution.objects.create(
+					appliance=execution.appliance,
+					profile=execution.profile,
+					previous_progress_time=execution.end_time-execution.start_time+execution.previous_progress_time,
+					previous_waiting_time=execution.start_time-execution.request_time+execution.previous_waiting_time)
+				schedule_later(new, debug)
 		return result
 
 def interrupt_shiftable_executions(start_time, end_time, rated_power, priority):
@@ -264,8 +275,6 @@ def calculate_weighted_priority(execution):
 	maximum_delay = execution.profile.maximum_delay
 	start_time = execution.start_time if execution.start_time is not None else timezone.now()
 	waiting_time = start_time - execution.request_time + execution.previous_waiting_time
-	time_until_deadline = maximum_delay - waiting_time
-	minutes_until_deadline = time_until_deadline.seconds/60 if maximum_delay > waiting_time else 0
 
 	if (execution.profile.priority is IMMEDIATE):
 		base_priority = 7
@@ -274,8 +283,13 @@ def calculate_weighted_priority(execution):
 	elif (execution.profile.priority is LOW_PRIORITY):
 		base_priority = 1
 
-	multiplier = 8 # steepness of curve: 6, 8, 10 are viable
-	priority = base_priority + floor(60*multiplier/(minutes_until_deadline+60))
+	if (maximum_delay):
+		multiplier = 8 # steepness of curve: 6, 8, 10 are viable
+		time_until_deadline = maximum_delay - waiting_time
+		minutes_until_deadline = time_until_deadline.seconds/60 if maximum_delay > waiting_time else 0
+		priority = base_priority + floor(60*multiplier/(minutes_until_deadline+60))
+	else:
+		priority = base_priority
 	return priority if priority < 10 else 10
 
 def anticipate_pending_executions(debug=False):
@@ -294,7 +308,6 @@ def anticipate_pending_executions(debug=False):
 def anticipate_high_priority_executions(debug=False):
 	pending_executions = sorted(list(get_pending_executions()), key=lambda e: calculate_weighted_priority(e), reverse=True)
 	for execution in pending_executions:
-		print(calculate_weighted_priority(execution))
 		if (calculate_weighted_priority(execution) > 7):
 			now = timezone.now()
 			success = shift_executions(execution, now, debug)

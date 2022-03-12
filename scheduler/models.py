@@ -77,7 +77,7 @@ class Profile(models.Model):
     priority = models.IntegerField(
         choices=PRIORITY_OPTIONS
     )
-    maximum_delay = models.DurationField(default=timezone.timedelta(seconds=3600))
+    maximum_delay = models.DurationField(default=timezone.timedelta(seconds=3600), null=True)
     rated_power = models.IntegerField(help_text="Rated power (W)")
     hidden = models.BooleanField(default=False)
 
@@ -188,13 +188,22 @@ class BatteryStorageSystem(models.Model):
     total_energy_capacity = models.IntegerField(help_text="Total energy capacity (Wh)")
     continuous_power = models.IntegerField(help_text="Continuous charge/discharge power (W)")
     last_full_charge_time = models.DateTimeField(default=timezone.now)
-    depth_of_discharge = models.FloatField(help_text="Depth-of-Discharge (%)")
+    depth_of_discharge = models.FloatField(help_text="Depth-of-Discharge", default=1)
 
     @classmethod
     def get_system(cls):
         with transaction.atomic():
             val = cls.objects.select_for_update().first()
             return val
+    
+    @classmethod
+    def compare_appliance(cls, appliance):
+        with transaction.atomic():
+            val = cls.objects.select_for_update().first()
+            if val is not None:
+                return appliance.id == val.appliance.id
+            else:
+                return False
 
     def set_last_full_charge_time(self, last_full_charge_time=timezone.now):
         with transaction.atomic():
