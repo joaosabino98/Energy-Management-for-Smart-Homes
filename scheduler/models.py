@@ -162,11 +162,11 @@ class Execution(models.Model):
             self.save()
 
     def status(self):
-        if (self.is_finished):
+        if self.is_finished:
             return "Finished"
-        elif (self.is_interrupted):
+        elif self.is_interrupted:
             return "Interrupted"
-        elif (self.is_started):
+        elif self.is_started:
             return "Started"
         else:
             return "Pending"

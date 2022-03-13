@@ -37,6 +37,7 @@
 ### Schedule execution
 ```
 import processor.core as core
+import processor.external_energy as ext
 from scheduler.models import *
 core.start()
 e = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
@@ -47,10 +48,11 @@ e.delete()
 ### Test execution finish 
 ```
 import processor.core as core
+import processor.external_energy as ext
 from scheduler.models import *
 import time
 core.start()
-e = Execution.objects.create(appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=13))
+e = Execution.objects.create(appliance=Appliance.objects.get(pk=13),profile=Profile.objects.get(pk=13))
 core.schedule_execution(e)
 time.sleep(6)
 e = Execution.objects.get(pk=e.id)
@@ -62,10 +64,9 @@ e.delete()
 ---
 
 ## General To-do
- * New scheduling strategies: simple, time-band
- . Simple: application scheduled to nearest available time
- . Time-band: accept bands of lower and higher energy consumption
- * Include PV/BESS in consumption threshold
+ * New scheduling strategies: peak-shaving, load balancing
+ . Peak-shaving: application scheduled to nearest available time
+ . Load balancing: scheduled 
  * Implement get_all_available_execution_times and choose_execution_time, based on scheduling strategy
  * Implement multi-house mode recommendations in choose_execution_time
  * UI, etc
@@ -73,16 +74,15 @@ e.delete()
 ### Battery storage logic
 
 1. manage battery charging
-- on simple:
     * if solar panel energy available, charge during solar hours
-    * if no solar energy, charge whenever consumption < 40%?
-- on time-band:
-    * if solar panel energy available, charge during solar hours
-    * if no solar energy, charge during low hours
+    * if no solar energy, charge whenever consumption < 30% during day (up to 50% of available energy)
+
 
 2. manage battery consumption
-- on simple:
-    * schedule whenever consumption > 80%
+- on peak-shaving:
+    * schedule whenever consumption > 70%
+- on load balancing:
+    * schedule whenever consumption > 70% (down to 50%)
 - on time-band:
     * during high hours, schedule whenever consumption > power output during high hours
     * during average hours, schedule whenever consumption > 80%

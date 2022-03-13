@@ -79,7 +79,7 @@ def get_battery_power_discharge(time):
 
 def get_minimum_battery_power_discharge_within(start_time, end_time):
     minimum_discharge = None
-    if (BatteryStorageSystem.get_system() is not None):
+    if BatteryStorageSystem.get_system() is not None:
         reference_times = get_battery_discharge_reference_times_within(start_time, end_time)
         for time in reference_times:
             power_discharge = get_battery_power_discharge(time)
@@ -95,16 +95,16 @@ def is_battery_execution_interruptable(execution):
         power_to_energy(execution.start_time, execution.end_time, execution.profile.rated_power)
     minimum_energy = floor(battery.total_energy_capacity * (1 - battery.depth_of_discharge))
     queryset = get_battery_executions_within(execution.start_time, execution.end_time)
-    for exec in queryset:
-        if (exec != execution):
-            energy += power_to_energy(exec.start_time, exec.end_time, exec.profile.rated_power)
+    for battery_execution in queryset:
+        if battery_execution != execution:
+            energy += power_to_energy(battery_execution.start_time, battery_execution.end_time, battery_execution.profile.rated_power)
             if energy < minimum_energy:
                 return False
     return True
 
 def create_battery_execution(start_time, end_time, power):
     battery = BatteryStorageSystem.get_system()
-    if (battery is None):
+    if battery is None:
         raise NoBSSystemException()
     profile, _ = battery.appliance.profiles.get_or_create(
             rated_power=power,
@@ -123,23 +123,23 @@ def create_battery_execution(start_time, end_time, power):
         end_time=end_time
     )
 
-def attempt_schedule_battery_on_solar(date, energy_needed):
+def attempt_schedule_battery_on_solar(current_time, energy_needed, debug=False):
     battery = BatteryStorageSystem.get_system()
-    if (battery is None):
+    if battery is None:
         raise NoBSSystemException()
     photovoltaic_system = PhotovoltaicSystem.get_system()
-    if (photovoltaic_system is None):
+    if photovoltaic_system is None:
         raise NoPVSystemException() 
 
-    overproduction = get_day_periods_without_full_solar_utilization(date)
+    overproduction = get_day_periods_without_full_solar_utilization(current_time)
     if not overproduction:
-        date = date.replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
-        overproduction = get_day_periods_without_full_solar_utilization(date)
+        tomorrow = current_time.replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
+        overproduction = get_day_periods_without_full_solar_utilization(tomorrow)
     energy_to_allocate = 0
     for period in overproduction:
         power = overproduction[period] if overproduction[period] < battery.continuous_power else battery.continuous_power
         energy_to_allocate += power_to_energy(period[0], period[1], power)
-    if (energy_to_allocate >= energy_needed):
+    if energy_to_allocate >= energy_needed:
         for period in overproduction:
             if energy_needed < overproduction[period]:
                 power = energy_needed
@@ -151,22 +151,25 @@ def attempt_schedule_battery_on_solar(date, energy_needed):
                 power = overproduction[period]
                 energy_needed -= power_to_energy(period[0], period[1], power)
             execution = create_battery_execution(period[0], period[1], power)
-            core.start_execution(execution, period[0])
+            if period[0] == current_time:
+                core.start_execution(execution, None, debug)
+            else:
+                core.start_execution(execution, period[0], debug)
             if energy_needed < battery.total_energy_capacity * 0.01:
                 break
         return True
     else:
         return False
 
-def schedule_battery_on_low_demand(date, energy_needed):
+def schedule_battery_on_low_demand(current_time, energy_needed, debug=False):
     battery = BatteryStorageSystem.get_system()
-    if (battery is None):
+    if battery is None:
         raise NoBSSystemException()
     photovoltaic_system = PhotovoltaicSystem.get_system()
-    if (photovoltaic_system is None):
+    if photovoltaic_system is None:
         raise NoPVSystemException() 
 
-    low_demand = get_low_consumption_day_periods(date)
+    low_demand = get_low_consumption_day_periods(current_time)
     for period in low_demand:
         if energy_needed < low_demand[period]:
             power = energy_needed
@@ -178,20 +181,23 @@ def schedule_battery_on_low_demand(date, energy_needed):
             power = low_demand[period]
             energy_needed -= power_to_energy(period[0], period[1], power)
         execution = create_battery_execution(period[0], period[1], power)
-        core.start_execution(execution, period[0])
+        if period[0] == current_time:
+            core.start_execution(execution, None, debug)
+        else:
+            core.start_execution(execution, period[0], debug)
         if energy_needed < battery.total_energy_capacity * 0.01:
             break
 
-def schedule_battery_charge():
+def schedule_battery_charge(debug=False):
     battery = BatteryStorageSystem.get_system()
-    if (battery is None):
+    if battery is None:
         return NoBSSystemException()
     today = timezone.now()
     energy_needed = battery.total_energy_capacity - get_battery_energy()
 
-    success = attempt_schedule_battery_on_solar(today, energy_needed)
-    if success is False:
-        schedule_battery_on_low_demand(today, energy_needed)   
+    success = attempt_schedule_battery_on_solar(today, energy_needed, debug)
+    if not success:
+        schedule_battery_on_low_demand(today, energy_needed, debug)   
 
 def power_to_energy(start_time, end_time, power):
     return math.floor(power * (end_time - start_time).seconds/3600)
@@ -200,11 +206,12 @@ def energy_to_power(start_time, end_time, energy):
     return math.floor(energy / ((end_time - start_time).seconds/3600))
 
 def get_day_reference_times(date):
-    production_reference_times = get_production_reference_times_within(date)
+    production_reference_times = get_day_production_reference_times(date)
     if production_reference_times:
         start_time = production_reference_times[0]
         end_time = production_reference_times[-1]
         reference_times = list(dict.fromkeys(production_reference_times + core.get_consumption_reference_times_within(start_time, end_time)))
+        reference_times.append(date)
         reference_times.sort()
     else:
         start_time = date
@@ -212,42 +219,42 @@ def get_day_reference_times(date):
         reference_times = core.get_consumption_reference_times_within(start_time, end_time)
     return reference_times
 
-def get_low_consumption_day_periods(date):
-    reference_times = get_day_reference_times(date)
+def get_low_consumption_day_periods(current_time):
+    reference_times = get_day_reference_times(current_time)
     day_periods = {}
     prev_time = None
     for time in reference_times:
-        if prev_time is not None and prev_time > date:
+        if prev_time is not None and prev_time >= current_time:
             low_consumption_threshold = get_power_available_within(prev_time, time) * 0.4
             consumption = core.get_maximum_consumption_within(prev_time, time)
-            if (low_consumption_threshold > consumption):
+            if low_consumption_threshold > consumption:
                 allocable_energy = floor(get_power_available_within(prev_time, time) * 0.6 - consumption)
                 day_periods[(prev_time, time)] = allocable_energy
         prev_time = time
     return day_periods
 
-def get_day_periods_without_full_solar_utilization(date):
-    reference_times = get_day_reference_times(date)
+def get_day_periods_without_full_solar_utilization(current_time):
+    reference_times = get_day_reference_times(current_time)
     day_periods = {}
     if PhotovoltaicSystem.get_system() is not None:
         prev_time = None
         for time in reference_times:
-            if prev_time is not None and prev_time > date:
+            if prev_time is not None and prev_time >= current_time:
                 production = get_power_production(prev_time)
                 consumption = core.get_power_consumption(prev_time)
-                if (production > consumption):
+                if production > consumption:
                     day_periods[(prev_time, time)] = production - consumption
             prev_time = time
     return day_periods
 
-def get_production_reference_times_within(day):
+def get_day_production_reference_times(date):
     time_list = []
-    start_time = day.replace(hour=0, minute=0, second=0, microsecond=0) 
+    start_time = date.replace(hour=0, minute=0, second=0, microsecond=0) 
     end_time = start_time + timezone.timedelta(days=1)
     time = start_time
     while (time < end_time):
         power = get_power_production(time)
-        if (power > 1):
+        if power > 0:
             time_list.append(time)
         time += timezone.timedelta(hours=1)
     end_time = time_list[-1] + timezone.timedelta(hours=1)
@@ -263,7 +270,7 @@ def get_power_production(time):
 
 def get_minimum_production_within(start_time, end_time):
     minimum_production = None
-    if (PhotovoltaicSystem.objects.exists()):
+    if PhotovoltaicSystem.objects.exists():
         time = start_time
         while time < end_time:
             power_production = get_power_production(time)

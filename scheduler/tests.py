@@ -1,7 +1,7 @@
 from django.test import TestCase, tag
 
 from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, NONINTERRUPTIBLE, NORMAL, PEAK_SHAVING
-from .models import AppVals, Execution, Appliance, Profile
+from .models import AppVals, BatteryStorageSystem, Execution, Appliance, PhotovoltaicSystem, ProductionData, Profile
 import processor.test_core as core
 from django.utils import timezone
 import time
@@ -357,3 +357,11 @@ class ComplexSchedulingTestCase(TestCase):
     def test_anticipate_high_priority_executions(self):
         pass
 
+class ExternalSourcesTestCase(TestCase):
+    def setUp(self):
+        AppVals.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
+        PhotovoltaicSystem.objects.create(latitude=38.762, longitude=-9.155, tilt=20, azimut=180, capacity=6400)
+        exec(open("scripts/load_solar_data.py").read())
+
+    def test_load_solar_data(self):
+        self.assertTrue(ProductionData.objects.all())

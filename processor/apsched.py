@@ -11,8 +11,16 @@ from django_apscheduler import util
 logger = logging.getLogger(__name__)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 
+job_store = {
+	'default': DjangoJobStore()
+}
+job_defaults = {
+	'misfire_grace_time': None
+}
+
 logger.info("Creating scheduler...")
-scheduler = BackgroundScheduler(timezone=settings.TIME_ZONE)
+scheduler = BackgroundScheduler()
+scheduler.configure(job_stores=job_store, job_defaults=job_defaults, timezone=settings.TIME_ZONE)
 scheduler.add_jobstore(DjangoJobStore(), "default")
 logger.info("Scheduler created.")
 
