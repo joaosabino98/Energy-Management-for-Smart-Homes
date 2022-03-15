@@ -87,7 +87,10 @@ def get_minimum_battery_power_discharge_within(start_time, end_time):
                 minimum_discharge = power_discharge
     return minimum_discharge
 
-def is_battery_execution_interruptable(execution):
+def is_battery_discharge_available(execution, start_time):
+    pass
+
+def is_battery_charge_interruptable(execution):
     battery = BatteryStorageSystem.get_system()
     if battery is None:
         raise NoBSSystemException()
@@ -123,7 +126,7 @@ def create_battery_execution(start_time, end_time, power):
         end_time=end_time
     )
 
-def attempt_schedule_battery_on_solar(current_time, energy_needed, debug=False):
+def attempt_schedule_battery_charge_on_solar(current_time, energy_needed, debug=False):
     battery = BatteryStorageSystem.get_system()
     if battery is None:
         raise NoBSSystemException()
@@ -161,7 +164,7 @@ def attempt_schedule_battery_on_solar(current_time, energy_needed, debug=False):
     else:
         return False
 
-def schedule_battery_on_low_demand(current_time, energy_needed, debug=False):
+def schedule_battery_charge_on_low_demand(current_time, energy_needed, debug=False):
     battery = BatteryStorageSystem.get_system()
     if battery is None:
         raise NoBSSystemException()
@@ -195,9 +198,9 @@ def schedule_battery_charge(debug=False):
     today = timezone.now()
     energy_needed = battery.total_energy_capacity - get_battery_energy()
 
-    success = attempt_schedule_battery_on_solar(today, energy_needed, debug)
+    success = attempt_schedule_battery_charge_on_solar(today, energy_needed, debug)
     if not success:
-        schedule_battery_on_low_demand(today, energy_needed, debug)   
+        schedule_battery_charge_on_low_demand(today, energy_needed, debug)   
 
 def power_to_energy(start_time, end_time, power):
     return math.floor(power * (end_time - start_time).seconds/3600)

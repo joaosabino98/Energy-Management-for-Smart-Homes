@@ -32,14 +32,17 @@ def get_battery_power_discharge(time):
 def get_minimum_battery_power_discharge_within(start_time, end_time):
     return ext.get_minimum_battery_power_discharge_within(start_time, end_time)
 
-def is_battery_execution_interruptable(execution):
-    return ext.is_battery_execution_interruptable(execution)
+def is_battery_charge_interruptable(execution):
+    return ext.is_battery_charge_interruptable(execution)
 
 def create_battery_execution(start_time, end_time, power):
     return ext.create_battery_execution(start_time, end_time, power)
 
-def attempt_schedule_battery_on_solar(current_time, energy_needed):
-    return ext.attempt_schedule_battery_on_solar(current_time, energy_needed, debug=True)
+def attempt_schedule_battery_charge_on_solar(current_time, energy_needed):
+    return ext.attempt_schedule_battery_charge_on_solar(current_time, energy_needed, debug=True)
+
+def schedule_battery_charge_on_low_demand(current_time, energy_needed):
+    return ext.schedule_battery_charge_on_low_demand(current_time, energy_needed, debug=True)
 
 def schedule_battery_charge():
     return ext.schedule_battery_charge(debug=True)

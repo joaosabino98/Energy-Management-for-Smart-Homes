@@ -90,14 +90,25 @@ def get_maximum_consumption_within(start_time, end_time, queryset=None):
 def get_positive_power_difference(rated_power, target_power):
 	return rated_power - target_power if rated_power < target_power else float("inf")
 
+def calculate_execution_end_time(execution, start_time, duration=None):
+	if execution.appliance.maximum_duration_of_usage is None and duration is None:
+		end_time = INF_DATE
+	elif duration is not None:
+		remaining_execution_time = duration - execution.previous_progress_time
+		end_time = start_time + remaining_execution_time
+	else:
+		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
+		end_time = start_time + remaining_execution_time
+	return end_time
+
 def choose_execution_time(execution, available_periods, strategy=AppVals.get_strategy()):
 	if available_periods:
+		maximum_delay = execution.profile.maximum_delay
 		if strategy is PEAK_SHAVING:
 			earliest_start_time = next(iter(available_periods))[0]
 			if earliest_start_time - execution.request_time < maximum_delay:
 				return earliest_start_time
 		elif strategy is LOAD_DISTRIBUTION:
-			maximum_delay = execution.profile.maximum_delay
 			sorted_periods = {k: v for k, v in sorted(available_periods.items(), key=lambda item: item[1])}
 			for period in sorted_periods:
 				if period[0] - execution.request_time < maximum_delay:
@@ -110,15 +121,8 @@ def get_available_execution_times(execution, minimum_start_time=timezone.now(), 
 	available_periods = {}
 	unfinished = get_unfinished_executions()
 	proposed_start_time = minimum_start_time
-	if execution.appliance.maximum_duration_of_usage is None and duration is None:
-		proposed_end_time = INF_DATE
-	elif duration is not None:
-		remaining_execution_time = duration - execution.previous_progress_time
-	else:
-		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
 	for ending_execution in unfinished:
-		if execution.appliance.maximum_duration_of_usage is not None:
-			proposed_end_time = proposed_start_time + remaining_execution_time
+		proposed_end_time = calculate_execution_end_time(execution, proposed_start_time, duration)
 		running = get_running_executions_within(proposed_start_time, proposed_end_time)
 		power_consumption = 0
 		for running_execution in running:
@@ -135,13 +139,8 @@ def get_available_execution_times(execution, minimum_start_time=timezone.now(), 
 def get_available_execution_time(execution, minimum_start_time=timezone.now()):
 	unfinished = get_unfinished_executions()
 	proposed_start_time = minimum_start_time
-	if execution.appliance.maximum_duration_of_usage is None:
-		proposed_end_time = INF_DATE
-	else:
-		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
 	for ending_execution in unfinished:
-		if execution.appliance.maximum_duration_of_usage is not None:
-			proposed_end_time = proposed_start_time + remaining_execution_time
+		proposed_end_time = calculate_execution_end_time(execution, proposed_start_time)
 		running = get_running_executions_within(proposed_start_time, proposed_end_time)
 		power_consumption = 0
 		for running_execution in running:
@@ -205,25 +204,32 @@ def finish_execution(execution, debug=False):
 
 def schedule_execution(execution, debug=False):
 	now = timezone.now()
-	available_time = get_available_execution_time(execution, now)
+	strategy = AppVals.get_strategy()
+	chosen_time = get_available_execution_time(execution, now)
+	# available_periods = get_available_execution_times(execution, now)
+	# chosen_time = choose_execution_time(execution, available_periods, strategy)
 
-	if available_time == now:
-		print("Enough available power.")
-		start_execution(execution, None, debug)
-		return 1
-	else:
-		print("Unable to activate immediately. Attempting to shift lower priority running executions...")
-		success = shift_executions(execution, now, debug)
-		if success:
-			return 2
+	if strategy is PEAK_SHAVING:
+		if chosen_time == now:
+			print("Enough available power.")
+			start_execution(execution, None, debug)
+			return 1
+		elif ext.is_battery_discharge_available(execution, now):
+			print("Activating battery storage system.")
+			#TODO
 		else:
-			print("Unable to shift running executions.")
-			if available_time != INF_DATE:
-				start_execution(execution, available_time, debug)
-				return 3
+			print("Unable to activate immediately. Attempting to shift lower priority running executions...")
+			success = shift_executions(execution, now, debug)
+			if success:
+				return 2
 			else:
-				print("Unable to schedule execution. Consider raising threshold or manually stopping appiances.")
-				return 4
+				print("Unable to shift running executions.")
+				if chosen_time != INF_DATE:
+					start_execution(execution, chosen_time, debug)
+					return 3
+				else:
+					print("Unable to schedule execution. Consider raising threshold or stopping appliances.")
+					return 4
 
 def schedule_later(execution, debug=False):
 	now = timezone.now()
@@ -233,11 +239,7 @@ def schedule_later(execution, debug=False):
 def shift_executions(execution, start_time, debug=False):
 	priority = calculate_weighted_priority(execution)
 	rated_power = execution.profile.rated_power
-	if execution.appliance.maximum_duration_of_usage is not None:
-		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
-		end_time = start_time + remaining_execution_time
-	else:
-		end_time = INF_DATE
+	end_time = calculate_execution_end_time(execution, start_time)
 	success, interrupted = interrupt_shiftable_executions(start_time, end_time, rated_power, priority)
 	if success:
 		print("Lower priority running executions found.")
