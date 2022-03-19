@@ -172,7 +172,7 @@ class Execution(models.Model):
             return "Pending"
 
     def __str__(self):
-        request_time = self.request_time.strftime("%m/%d/%Y, %H:%M:%S")
+        request_time = self.request_time.strftime("%d/%m/%Y, %H:%M:%S")
         return f"Execution of {self.appliance.name} requested at {request_time}. Status: {self.status()}"
 
     # class Meta:

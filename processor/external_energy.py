@@ -1,4 +1,3 @@
-import math
 import os
 import django
 import processor.core as core
@@ -25,6 +24,8 @@ def get_battery_executions_within(start_time, end_time):
     battery = BatteryStorageSystem.get_system()
     if battery is None:
         return Execution.objects.none()
+    if end_time is None:
+        return Execution.objects.filter(appliance=battery.appliance, end_time__gt=start_time)
     return Execution.objects.filter(appliance=battery.appliance, start_time__lte=end_time, end_time__gt=start_time)
 
 def get_battery_charge_within(start_time, end_time):
@@ -50,17 +51,25 @@ def get_last_battery_execution():
         return Execution.objects.none()
     return Execution.objects.filter(appliance=battery.appliance).order_by('end_time').last()
 
+def get_last_battery_discharge():
+    battery = BatteryStorageSystem.get_system()
+    if battery is None:
+        return Execution.objects.none()
+    return Execution.objects.filter(appliance=battery.appliance, profile__rated_power__lt=0).order_by('end_time').last()
+
 def get_battery_energy(time=None):
     battery = BatteryStorageSystem.get_system()
     if battery is None:
         return 0
-    queryset = Execution.objects.filter(appliance=battery.appliance, start_time__gt=battery.last_full_charge_time)
+    queryset = Execution.objects.filter(appliance=battery.appliance, start_time__gte=battery.last_full_charge_time)
     if time is not None:
-        queryset = queryset.exclude(end_time__gt=time)
+        queryset = queryset.exclude(start_time__gte=time)
     energy = battery.total_energy_capacity
     for execution in queryset:
         power = execution.profile.rated_power
-        energy += floor((execution.end_time - execution.start_time).seconds / 3600 * power)
+        energy += power_to_energy(execution.start_time,
+            execution.end_time if execution.end_time < time else time,
+            power)
     return energy
 
 def get_battery_power_charge(time):
@@ -87,22 +96,61 @@ def get_minimum_battery_power_discharge_within(start_time, end_time):
                 minimum_discharge = power_discharge
     return minimum_discharge
 
-def is_battery_discharge_available(execution, start_time):
-    pass
+def get_maximum_battery_power_discharge_within(start_time, end_time):
+    maximum_discharge = 0
+    if BatteryStorageSystem.get_system() is not None:
+        reference_times = get_battery_discharge_reference_times_within(start_time, end_time)
+        for time in reference_times:
+            power_discharge = get_battery_power_discharge(time)
+            if power_discharge > maximum_discharge:
+                maximum_discharge = power_discharge
+    return maximum_discharge
 
-def is_battery_charge_interruptable(execution):
+def get_battery_depletion_below_minimum(start_time, subtracted_energy):
     battery = BatteryStorageSystem.get_system()
     if battery is None:
         raise NoBSSystemException()
-    energy = get_battery_energy(execution.start_time) - \
-        power_to_energy(execution.start_time, execution.end_time, execution.profile.rated_power)
+    energy_available = get_battery_energy(start_time) - subtracted_energy
     minimum_energy = floor(battery.total_energy_capacity * (1 - battery.depth_of_discharge))
-    queryset = get_battery_executions_within(execution.start_time, execution.end_time)
+    queryset = get_battery_executions_within(start_time, None)
     for battery_execution in queryset:
-        if battery_execution != execution:
-            energy += power_to_energy(battery_execution.start_time, battery_execution.end_time, battery_execution.profile.rated_power)
-            if energy < minimum_energy:
-                return False
+        start_time_after_measurement = battery_execution.start_time if battery_execution.start_time > start_time else start_time
+        energy_available += power_to_energy(start_time_after_measurement, battery_execution.end_time, battery_execution.profile.rated_power)
+        if energy_available < minimum_energy:
+            return True
+    return False
+
+# Available if:
+# 1. Battery exists
+# 2. Battery is not charging
+# 3. Battery available power output > power needed
+# 4. Battery energy unscheduled for consumption > energy needed
+def is_battery_discharge_available(execution, start_time):
+    battery = BatteryStorageSystem.get_system()
+    if battery is None:
+        return False
+    end_time = core.calculate_execution_end_time(execution, start_time)
+    queryset = get_battery_charge_within(start_time, end_time)
+    if queryset:
+        return False
+    power_discharge = get_maximum_battery_power_discharge_within(start_time, end_time)
+    maximum_remaining_power_discharge = battery.continuous_power - power_discharge
+    battery_power_needed = execution.profile.rated_power - get_power_available_within(start_time, end_time) 
+    if battery_power_needed > maximum_remaining_power_discharge:
+        return False
+    battery_energy_needed = power_to_energy(start_time, end_time, battery_power_needed)
+    if get_battery_depletion_below_minimum(start_time, battery_energy_needed):
+        return False
+    return True
+
+# battery charge is interruptible if future consumptions don't consume beyond depth of discharge
+def is_battery_charge_interruptible(execution):
+    battery = BatteryStorageSystem.get_system()
+    if battery is None:
+        raise NoBSSystemException()
+    battery_energy_provided = power_to_energy(execution.start_time, execution.end_time, execution.profile.rated_power)
+    if get_battery_depletion_below_minimum(execution.end_time, battery_energy_provided):
+        return False
     return True
 
 def create_battery_execution(start_time, end_time, power):
@@ -126,24 +174,54 @@ def create_battery_execution(start_time, end_time, power):
         end_time=end_time
     )
 
-def attempt_schedule_battery_charge_on_solar(current_time, energy_needed, debug=False):
+# used before executions are scheduled to temporarily increase threshold
+def schedule_battery_discharge_on_consumption_above_threshold(execution, current_time, start_time, debug=False):
+    battery = BatteryStorageSystem.get_system()
+    if battery is None:
+        raise NoBSSystemException()
+    end_time = core.calculate_execution_end_time(execution, start_time)
+    battery_power_needed = execution.profile.rated_power - get_power_available_within(start_time, end_time)
+    execution = create_battery_execution(start_time, end_time, -battery_power_needed)
+    if start_time == current_time:
+        core.start_execution(execution, None, debug)
+    else:
+        core.start_execution(execution, start_time, debug)
+
+# used after executions are scheduled to ensure load balancing
+def schedule_battery_discharge_on_high_demand(current_time, debug=False):
+    pass
+# TODO
+#     battery = BatteryStorageSystem.get_system()
+#     if battery is None:
+#         pass
+#     if core.get_unfinished_executions():
+#         end_time = core.get_unfinished_executions().last().end_time
+#         queryset = core.get_consumption_reference_times_within(current_time, end_time)
+#         prev_time = None
+#         for time in queryset:
+#             if prev_time is not None:
+                
+#             prev_time = time
+
+def attempt_schedule_battery_charge_on_solar(current_time, start_time, energy_needed, debug=False):
     battery = BatteryStorageSystem.get_system()
     if battery is None:
         raise NoBSSystemException()
     photovoltaic_system = PhotovoltaicSystem.get_system()
     if photovoltaic_system is None:
-        raise NoPVSystemException() 
+        return False
 
-    overproduction = get_day_periods_without_full_solar_utilization(current_time)
-    if not overproduction:
-        tomorrow = current_time.replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
-        overproduction = get_day_periods_without_full_solar_utilization(tomorrow)
+    overproduction = get_day_periods_without_full_solar_utilization(start_time)
     energy_to_allocate = 0
     for period in overproduction:
+        if get_battery_executions_within(period[0], period[1]):
+            pass
         power = overproduction[period] if overproduction[period] < battery.continuous_power else battery.continuous_power
         energy_to_allocate += power_to_energy(period[0], period[1], power)
     if energy_to_allocate >= energy_needed:
         for period in overproduction:
+            if get_battery_executions_within(period[0], period[1]):
+                pass
             if energy_needed < overproduction[period]:
                 power = energy_needed
                 energy_needed = 0
@@ -164,16 +242,15 @@ def attempt_schedule_battery_charge_on_solar(current_time, energy_needed, debug=
     else:
         return False
 
-def schedule_battery_charge_on_low_demand(current_time, energy_needed, debug=False):
+def schedule_battery_charge_on_low_demand(current_time, start_time, energy_needed, debug=False):
     battery = BatteryStorageSystem.get_system()
     if battery is None:
         raise NoBSSystemException()
-    photovoltaic_system = PhotovoltaicSystem.get_system()
-    if photovoltaic_system is None:
-        raise NoPVSystemException() 
 
-    low_demand = get_low_consumption_day_periods(current_time)
+    low_demand = get_low_consumption_day_periods(start_time)
     for period in low_demand:
+        if get_battery_executions_within(period[0], period[1]):
+            pass
         if energy_needed < low_demand[period]:
             power = energy_needed
             energy_needed = 0
@@ -195,18 +272,15 @@ def schedule_battery_charge(debug=False):
     battery = BatteryStorageSystem.get_system()
     if battery is None:
         return NoBSSystemException()
-    today = timezone.now()
-    energy_needed = battery.total_energy_capacity - get_battery_energy()
+    now = timezone.now()
+    energy_needed = battery.total_energy_capacity - get_battery_energy(now)
 
-    success = attempt_schedule_battery_charge_on_solar(today, energy_needed, debug)
+    success = attempt_schedule_battery_charge_on_solar(now, now, energy_needed, debug)
+    # if not success:
+    #     tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
+    #     success = attempt_schedule_battery_charge_on_solar(now, tomorrow, energy_needed, debug)
     if not success:
-        schedule_battery_charge_on_low_demand(today, energy_needed, debug)   
-
-def power_to_energy(start_time, end_time, power):
-    return math.floor(power * (end_time - start_time).seconds/3600)
-
-def energy_to_power(start_time, end_time, energy):
-    return math.floor(energy / ((end_time - start_time).seconds/3600))
+        schedule_battery_charge_on_low_demand(now, now, energy_needed, debug)
 
 def get_day_reference_times(date):
     production_reference_times = get_day_production_reference_times(date)
@@ -222,27 +296,27 @@ def get_day_reference_times(date):
         reference_times = core.get_consumption_reference_times_within(start_time, end_time)
     return reference_times
 
-def get_low_consumption_day_periods(current_time):
-    reference_times = get_day_reference_times(current_time)
+def get_low_consumption_day_periods(start_time):
+    reference_times = get_day_reference_times(start_time)
     day_periods = {}
     prev_time = None
     for time in reference_times:
-        if prev_time is not None and prev_time >= current_time:
+        if prev_time is not None and prev_time >= start_time:
             low_consumption_threshold = get_power_available_within(prev_time, time) * 0.4
             consumption = core.get_maximum_consumption_within(prev_time, time)
             if low_consumption_threshold > consumption:
-                allocable_energy = floor(get_power_available_within(prev_time, time) * 0.6 - consumption)
+                allocable_energy = floor(get_power_available_within(prev_time, time) * 0.5 - consumption)
                 day_periods[(prev_time, time)] = allocable_energy
         prev_time = time
     return day_periods
 
-def get_day_periods_without_full_solar_utilization(current_time):
-    reference_times = get_day_reference_times(current_time)
+def get_day_periods_without_full_solar_utilization(start_time):
+    reference_times = get_day_reference_times(start_time)
     day_periods = {}
     if PhotovoltaicSystem.get_system() is not None:
         prev_time = None
         for time in reference_times:
-            if prev_time is not None and prev_time >= current_time:
+            if prev_time is not None and prev_time >= start_time:
                 production = get_power_production(prev_time)
                 consumption = core.get_power_consumption(prev_time)
                 if production > consumption:
@@ -282,8 +356,8 @@ def get_minimum_production_within(start_time, end_time):
             time += timezone.timedelta(hours=1)
     return minimum_production
 
-def start_of_next_month(date):
-    return timezone.datetime(
-        year=date.year + floor((date.month + 1) / 12),
-        month=(date.month + 1) % 12,
-        day=1).astimezone(timezone.get_current_timezone())
+def power_to_energy(start_time, end_time, power):
+    return floor(power * (end_time - start_time).seconds/3600)
+
+def energy_to_power(start_time, end_time, energy):
+    return floor(energy / ((end_time - start_time).seconds/3600))
