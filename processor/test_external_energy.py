@@ -36,8 +36,11 @@ def get_minimum_battery_power_discharge_within(start_time, end_time):
 def get_maximum_battery_power_discharge_within(start_time, end_time):
     return ext.get_maximum_battery_power_discharge_within(start_time, end_time)
 
-def get_battery_depletion_below_minimum(start_time, subtracted_energy):
-    return ext.get_battery_depletion_below_minimum(start_time, subtracted_energy)
+def get_maximum_possible_battery_energy_discharge(start_time):
+    return ext.get_maximum_possible_battery_energy_discharge(start_time)
+
+def get_battery_discharge_available(start_time, end_time):
+    return ext.get_battery_discharge_available(start_time, end_time)
 
 def is_battery_discharge_available(execution, start_time):
     return ext.is_battery_charge_interruptible(execution, start_time)
@@ -63,8 +66,8 @@ def schedule_battery_charge_on_low_demand(current_time, energy_needed):
 def schedule_battery_charge():
     return ext.schedule_battery_charge(debug=True)
 
-def get_day_reference_times(date):
-    return ext.get_day_reference_times(date)
+def get_high_consumption_periods(current_time):
+    return ext.get_high_consumption_periods(current_time)
 
 def get_low_consumption_day_periods(current_time):
     return ext.get_low_consumption_day_periods(current_time)
@@ -72,14 +75,17 @@ def get_low_consumption_day_periods(current_time):
 def get_day_periods_without_full_solar_utilization(current_time):
     return ext.get_day_periods_without_full_solar_utilization(current_time)
 
-def get_day_production_reference_times(date):
-    return ext.get_day_production_reference_times(date)
+def get_day_reference_times(current_time):
+    return ext.get_day_reference_times(current_time)
 
 def get_power_production(time):
     return ext.get_power_production(time)
 
 def get_minimum_production_within(start_time, end_time):
     return ext.get_minimum_production_within(start_time, end_time)
+
+def compact_periods(day_periods):
+    return ext.compact_periods(day_periods)
 
 def power_to_energy(start_time, end_time, power):
     return ext.power_to_energy(start_time, end_time, power)

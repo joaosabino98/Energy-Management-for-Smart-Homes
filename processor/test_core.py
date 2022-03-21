@@ -67,6 +67,9 @@ def shift_executions(execution, start_time):
 def interrupt_shiftable_executions(start_time, end_time, rated_power, priority):
     return core.shift_executions(start_time, end_time, rated_power, priority)
 
+def check_high_demand(start_time, end_time, current_time):
+    return core.check_high_demand(start_time, end_time, current_time, debug=True)
+
 def calculate_weighted_priority(execution):
     return core.calculate_weighted_priority(execution)
 

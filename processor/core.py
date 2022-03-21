@@ -1,6 +1,6 @@
 import os
 import django
-from math import floor, log10
+from math import floor
 from django.utils import timezone
 from apscheduler.triggers.cron import CronTrigger
 import processor.apsched as aps
@@ -163,9 +163,16 @@ def get_available_execution_time(execution, minimum_start_time=timezone.now()):
 def get_available_fractioned_execution_time(execution, minimum_start_time=timezone.now()):
 	pass
 
-#TODO: create sparse references to break long blocks
+# Slight hack: returned list includes hourly references for at most two days
+# This means PV production times are included and periods can be found after timespan of running executions
 def get_consumption_reference_times_within(start_time, end_time, queryset=None):
 	time_list = [start_time, end_time]
+	if start_time != INF_DATE:
+		hour_break = start_time.replace(minute=0, second=0, microsecond=0) + timezone.timedelta(hours=1)
+		date_limit = start_time.replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=2)
+		while hour_break < end_time and hour_break < date_limit:
+			time_list.append(hour_break)
+			hour_break += timezone.timedelta(hours=1)
 	if queryset is None:
 		queryset = get_running_executions_within(start_time, end_time)
 	for execution in queryset:
@@ -220,6 +227,7 @@ def schedule_execution(execution, debug=False):
 		if chosen_time == now:
 			print("Enough available power.")
 			start_execution(execution, None, debug)
+			check_high_demand(now, calculate_execution_end_time(execution, now), now, debug)
 			return 1
 		elif ext.is_battery_discharge_available(execution, now):
 			print("Activating battery storage system.")
@@ -230,14 +238,17 @@ def schedule_execution(execution, debug=False):
 			print("Unable to activate immediately. Attempting to shift lower priority running executions...")
 			success = shift_executions(execution, now, debug)
 			if success:
+				ext.schedule_battery_discharge_on_high_demand(now, debug)
 				return 2
 			else:
 				print("Unable to shift running executions.")
 				if chosen_time is not None:
 					start_execution(execution, chosen_time, debug)
+					check_high_demand(chosen_time, calculate_execution_end_time(execution, chosen_time), now, debug)
 					return 3
 				else:
 					print("Unable to schedule execution within acceptable delay. Consider raising threshold or stopping appliances.")
+					ext.schedule_battery_discharge_on_high_demand(now, debug)
 					return 4
 
 def schedule_later(execution, debug=False):
@@ -282,6 +293,12 @@ def interrupt_shiftable_executions(start_time, end_time, rated_power, priority):
 			break
 
 	return True, interrupted
+
+def check_high_demand(start_time, end_time, current_time, debug=False):
+	if BatteryStorageSystem.get_system() is not None and \
+		get_maximum_consumption_within(start_time, end_time) > ext.get_power_available_within(start_time, end_time) * 0.7:
+		print("Attempting to schedule battery discharge on high demand.")
+		ext.schedule_battery_discharge_on_high_demand(current_time, debug)
 
 def calculate_weighted_priority(execution):
 	maximum_delay = execution.profile.maximum_delay
@@ -343,5 +360,5 @@ def start():
 	AppVals.set_running(True)
 	print("Start process complete.")
 
-step = 5
+step = 15
 bgsched = aps.scheduler

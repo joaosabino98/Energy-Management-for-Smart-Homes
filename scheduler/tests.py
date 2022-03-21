@@ -392,16 +392,16 @@ class BSSystemTestCase(TestCase):
         AppVals.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
         self.scheduler = core
 
-        BatteryStorageSystem.objects.create(total_energy_capacity=18000, continuous_power=5500)
         p1 = Profile.objects.create(name="Test 1", schedulability=NONINTERRUPTIBLE, priority=NORMAL, maximum_delay=None, rated_power=3600)
         p2 = Profile.objects.create(name="Test 2", schedulability=INTERRUPTIBLE, priority=NORMAL, maximum_delay=None, rated_power=2000)
         p3 = Profile.objects.create(name="Test 3", schedulability=INTERRUPTIBLE, priority=NORMAL, maximum_delay=None, rated_power=4000)
-        a1 = Appliance.objects.create(name="Test 1", maximum_duration_of_usage=7200)
-        a2 = Appliance.objects.create(name="Test 2", maximum_duration_of_usage=3600)
+        a1 = Appliance.objects.create(name="Test 1", maximum_duration_of_usage=timezone.timedelta(seconds=7200))
+        a2 = Appliance.objects.create(name="Test 2", maximum_duration_of_usage=timezone.timedelta(seconds=3600))
         a1.profiles.set([p1, p2, p3])
         a2.profiles.set([p1, p2, p3])
         a1.save()
         a2.save()
+        BatteryStorageSystem.objects.create(total_energy_capacity=18000, continuous_power=5500)
 
     def test_bss_appliance_exists(self):
         battery = BatteryStorageSystem.get_system()
@@ -409,12 +409,19 @@ class BSSystemTestCase(TestCase):
         appliance = battery.appliance
         self.assertIsNotNone(appliance)
 
-    def test_schedule_battery_discharge(self):
+    def test_schedule_battery_discharge_on_high_demand(self):
         e1 = Execution.objects.create(appliance=Appliance.objects.get(pk=1), profile=Profile.objects.get(pk=1))
         e2 = Execution.objects.create(appliance=Appliance.objects.get(pk=2), profile=Profile.objects.get(pk=3))
         self.scheduler.schedule_execution(e1)
         self.scheduler.schedule_execution(e2)
-        # self.assertTrue()
+        e1 = Execution.objects.get(pk=1)
+        e2 = Execution.objects.get(pk=2)
+        e3 = ext.get_last_battery_execution()
+        self.assertNotEqual(e3, Execution.objects.none())
+        self.assertEqual(e3.profile.name, "BSS 3600W Discharge")
+        self.assertEqual(e3.profile.rated_power, -3600)
+        self.assertLess(ext.get_battery_energy(e2.end_time), ext.get_battery_energy(timezone.now()))
+        self.assertEqual(ext.get_battery_energy(e2.end_time), ext.get_battery_energy(e1.end_time))
 
     def test_schedule_battery_charge(self):
         # drain battery first

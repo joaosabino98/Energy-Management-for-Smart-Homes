@@ -123,10 +123,11 @@ class Execution(models.Model):
     def start(self):
         with transaction.atomic():
             self.start_time = timezone.now()
-            if self.appliance.maximum_duration_of_usage is not None:
-                self.end_time = self.start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
-            else:
-                self.end_time = INF_DATE
+            if self.end_time is None:
+                if self.appliance.maximum_duration_of_usage is not None:
+                    self.end_time = self.start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
+                else:
+                    self.end_time = INF_DATE
             self.is_started = True
             self.save()
 
@@ -155,10 +156,11 @@ class Execution(models.Model):
     def set_start_time(self, start_time):
         with transaction.atomic():
             self.start_time = start_time
-            if self.appliance.maximum_duration_of_usage is not None:
-                self.end_time = self.start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
-            else:
-                self.end_time = INF_DATE
+            if self.end_time is None:
+                if self.appliance.maximum_duration_of_usage is not None:
+                    self.end_time = self.start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
+                else:
+                    self.end_time = INF_DATE
             self.save()
 
     def status(self):
