@@ -212,15 +212,6 @@ class BatteryStorageSystem(models.Model):
             self.last_full_charge_time = last_full_charge_time
             self.save()
 
-    # def save(self, *args, **kwargs):
-    #     if not self.appliance:
-    #         charge_time = timezone.timedelta(seconds=floor(self.total_energy_capacity / self.continuous_power * 3600))
-    #         self.appliance = Appliance.objects.create(
-    #             name="Battery Storage System",
-    #             maximum_duration_of_usage=charge_time
-    #         )
-    #     super().save(*args, **kwargs)
-
 @receiver(post_save, sender=BatteryStorageSystem, dispatch_uid="create_bss_appliance")
 def create_bss_appliance(sender, instance, created, **kwargs):
     if created:

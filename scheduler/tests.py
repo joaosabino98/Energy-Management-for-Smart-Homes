@@ -391,7 +391,6 @@ class BSSystemTestCase(TestCase):
     def setUp(self):
         AppVals.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
         self.scheduler = core
-
         p1 = Profile.objects.create(name="Test 1", schedulability=NONINTERRUPTIBLE, priority=NORMAL, maximum_delay=None, rated_power=3600)
         p2 = Profile.objects.create(name="Test 2", schedulability=INTERRUPTIBLE, priority=NORMAL, maximum_delay=None, rated_power=2000)
         p3 = Profile.objects.create(name="Test 3", schedulability=INTERRUPTIBLE, priority=NORMAL, maximum_delay=None, rated_power=4000)
@@ -401,7 +400,7 @@ class BSSystemTestCase(TestCase):
         a2.profiles.set([p1, p2, p3])
         a1.save()
         a2.save()
-        BatteryStorageSystem.objects.create(total_energy_capacity=18000, continuous_power=5500)
+        BatteryStorageSystem.objects.create(total_energy_capacity=18000, continuous_power=5500, last_full_charge_time=timezone.now() - timezone.timedelta(days=1))
 
     def test_bss_appliance_exists(self):
         battery = BatteryStorageSystem.get_system()
@@ -424,11 +423,33 @@ class BSSystemTestCase(TestCase):
         self.assertEqual(ext.get_battery_energy(e2.end_time), ext.get_battery_energy(e1.end_time))
 
     def test_schedule_battery_charge(self):
-        # drain battery first
-        pass
+        battery = BatteryStorageSystem.get_system()
+        start_time = timezone.now() - timezone.timedelta(hours=4)
+        end_time = timezone.now()
+        e1 = ext.create_battery_execution(start_time, end_time, -4500)  
+        ext.schedule_battery_charge()
+        e2 = ext.get_last_battery_execution()
+        self.assertLessEqual(ext.get_battery_energy(e1.end_time), battery.total_energy_capacity * 0.01)
+        self.assertGreaterEqual(ext.get_battery_energy(e2.end_time), battery.total_energy_capacity * 0.99)
 
     def test_schedule_battery_charge_at_full(self):
-        pass
+        battery = BatteryStorageSystem.get_system()
+        start_time = timezone.now()
+        ext.schedule_battery_charge()
+        e2 = ext.get_last_battery_execution()
+        self.assertIsNone(e2)
+        self.assertEqual(ext.get_maximum_possible_battery_energy_discharge(start_time), battery.total_energy_capacity)
+
+    def test_consecutive_schedule_battery_charge(self):
+        start_time = timezone.now() - timezone.timedelta(hours=4)
+        end_time = timezone.now()
+        e1 = ext.create_battery_execution(start_time, end_time, -4500)
+        ext.schedule_battery_charge()
+        e2 = ext.get_last_battery_execution()
+        ext.schedule_battery_charge(e2.end_time)
+        e3 = ext.get_last_battery_execution()
+        self.assertEqual(e2, e3)
+        self.assertEqual(ext.get_battery_energy(e2.end_time), ext.get_battery_energy(e3.end_time))
 
 class PVSystemTestCase(TestCase):
     def setUp(self):
@@ -439,4 +460,35 @@ class PVSystemTestCase(TestCase):
     def test_load_solar_data(self):
         self.assertTrue(ProductionData.objects.all())
 
-    
+    def test_schedule_with_higher_threshold(self):
+        pass
+
+    def test_battery_charge_on_solar_march(self):
+        march_day = timezone.now().replace(month=3, day=21, hour=0, minute=0, second=0, microsecond=0)
+        start_time = march_day - timezone.timedelta(hours=4)
+        end_time = march_day
+        day_before = march_day - timezone.timedelta(days=1)
+        day_after = march_day + timezone.timedelta(days=1)
+        battery = BatteryStorageSystem.objects.create(total_energy_capacity=18000, continuous_power=5500, last_full_charge_time=day_before)
+        e1 = ext.create_battery_execution(start_time, end_time, -4500)
+        ext.schedule_battery_charge(day_after)
+        for execution in ext.get_battery_charge_within(day_after, None):
+            self.assertLessEqual(execution.profile.rated_power, ext.get_power_production(execution.start_time))
+        # for execution in ext.get_battery_charge_within(day_after, None):
+        #     if execution.start_time.hour != 14:
+        #         self.assertEqual(execution.profile.rated_power, ext.get_power_production(execution.start_time))
+        #     else:
+        #         power_needed = ext.energy_to_power(execution.start_time, execution.end_time, battery.total_energy_capacity - ext.get_battery_energy(execution.start_time))
+        #         self.assertEqual(execution.profile.rated_power, power_needed)
+        
+    def test_battery_charge_on_solar_december(self):
+        december_day = timezone.now().replace(month=12, day=21, hour=0, minute=0, second=0, microsecond=0)
+        start_time = december_day - timezone.timedelta(hours=4)
+        end_time = december_day
+        day_before = december_day - timezone.timedelta(days=1)
+        day_after = december_day + timezone.timedelta(days=1)
+        battery = BatteryStorageSystem.objects.create(total_energy_capacity=18000, continuous_power=5500, last_full_charge_time=day_before)
+        e1 = ext.create_battery_execution(start_time, end_time, -4500)
+        ext.schedule_battery_charge(day_after)
+        self.assertTrue(ext.get_last_battery_execution().profile.rated_power > 0)
+        

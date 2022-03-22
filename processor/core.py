@@ -28,6 +28,8 @@ def finish_execution_job(id):
 		if energy_stored >= battery.total_energy_capacity * 0.99:
 			battery.last_full_charge_time = execution.end_time
 			battery.save()
+		elif energy_stored <= battery.total_energy_capacity * 0.01 and id == ext.get_last_battery_execution().id:
+			ext.schedule_battery_charge()
 	print("Execution of " + execution.appliance.name + " finished by the system at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))
 
 def anticipate_high_priority_executions_job():

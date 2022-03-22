@@ -1,4 +1,5 @@
 import processor.external_energy as ext
+from django.utils import timezone
 
 def get_power_available_within(start_time, end_time):
     return ext.get_power_available_within(start_time, end_time)
@@ -63,8 +64,8 @@ def attempt_schedule_battery_charge_on_solar(current_time, energy_needed):
 def schedule_battery_charge_on_low_demand(current_time, energy_needed):
     return ext.schedule_battery_charge_on_low_demand(current_time, energy_needed, debug=True)
 
-def schedule_battery_charge():
-    return ext.schedule_battery_charge(debug=True)
+def schedule_battery_charge(start_time=timezone.now()):
+    return ext.schedule_battery_charge(start_time, debug=True)
 
 def get_high_consumption_periods(current_time):
     return ext.get_high_consumption_periods(current_time)
