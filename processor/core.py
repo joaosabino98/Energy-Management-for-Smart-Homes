@@ -56,6 +56,8 @@ def get_running_executions():
 
 def get_running_executions_within(start_time, end_time):
 	unfinished = get_unfinished_executions()
+	if end_time is None:
+		return unfinished.filter(end_time__gt=start_time)
 	return unfinished.filter(start_time__lte=end_time).filter(end_time__gt=start_time)
 
 def get_lower_priority_shiftable_executions_within(start_time, end_time, target_power, target_priority):
@@ -107,13 +109,13 @@ def calculate_execution_end_time(execution, start_time, duration=None):
 	return end_time
 
 def choose_execution_time(execution, available_periods, strategy=AppVals.get_strategy()):
+	maximum_delay = execution.profile.maximum_delay
+	if maximum_delay is not None:
+		available_periods = dict(filter(lambda e: e[0][0] - execution.request_time < maximum_delay, available_periods.items()))
 	if available_periods:
-		maximum_delay = execution.profile.maximum_delay
 		if strategy is PEAK_SHAVING:
 			earliest_start_time = next(iter(available_periods))[0]
-			if earliest_start_time != INF_DATE and \
-				(maximum_delay is None or earliest_start_time - execution.request_time < maximum_delay):
-					return earliest_start_time
+			return earliest_start_time
 		elif strategy is LOAD_DISTRIBUTION:
 			sorted_periods = {k: v for k, v in sorted(available_periods.items(), key=lambda item: item[1])}
 			for period in sorted_periods:
@@ -121,45 +123,18 @@ def choose_execution_time(execution, available_periods, strategy=AppVals.get_str
 					return period[0]
 		else:
 			pass
-	return None
 
 def get_available_execution_times(execution, minimum_start_time=timezone.now(), duration=None):
 	available_periods = {}
-	unfinished = get_unfinished_executions()
-	proposed_start_time = minimum_start_time
-	for ending_execution in unfinished:
+	reference_times = get_consumption_reference_times_within(minimum_start_time, None)
+	for proposed_start_time in reference_times:
 		proposed_end_time = calculate_execution_end_time(execution, proposed_start_time, duration)
 		power_consumption = get_maximum_consumption_within(proposed_start_time, proposed_end_time)
 		power_available = ext.get_power_available_within(proposed_start_time, proposed_end_time) - power_consumption
 		if power_available >= execution.profile.rated_power:
 			available_periods[(proposed_start_time, proposed_end_time)] = power_available
-		elif ending_execution.end_time is not None:
-			proposed_start_time = ending_execution.end_time
-
-	#after last execution
-	proposed_end_time = calculate_execution_end_time(execution, proposed_start_time, duration)
-	power_consumption = get_maximum_consumption_within(proposed_start_time, proposed_end_time)
-	power_available = ext.get_power_available_within(proposed_start_time, proposed_end_time) - power_consumption
-	if power_available >= execution.profile.rated_power:
-		available_periods[(proposed_start_time, proposed_end_time)] = power_available
 	
 	return available_periods
-
-def get_available_execution_time(execution, minimum_start_time=timezone.now()):
-	unfinished = get_unfinished_executions()
-	proposed_start_time = minimum_start_time
-	for ending_execution in unfinished:
-		proposed_end_time = calculate_execution_end_time(execution, proposed_start_time)
-		running = get_running_executions_within(proposed_start_time, proposed_end_time)
-		power_consumption = 0
-		for running_execution in running:
-			power_consumption += running_execution.profile.rated_power
-		if ext.get_power_available_within(proposed_start_time, proposed_end_time) - power_consumption >= execution.profile.rated_power:
-			break
-		elif ending_execution.end_time is not None:
-			proposed_start_time = ending_execution.end_time
-
-	return proposed_start_time
 
 #TODO: attempt to shedule execution in parts instead of whole
 def get_available_fractioned_execution_time(execution, minimum_start_time=timezone.now()):
@@ -168,20 +143,25 @@ def get_available_fractioned_execution_time(execution, minimum_start_time=timezo
 # Slight hack: returned list includes hourly references for at most two days
 # This means PV production times are included and periods can be found after timespan of running executions
 def get_consumption_reference_times_within(start_time, end_time, queryset=None):
-	time_list = [start_time, end_time]
+	time_list = [start_time]
+	if end_time is not None and end_time != INF_DATE:
+		time_list.append(end_time)
 	if start_time != INF_DATE:
 		hour_break = start_time.replace(minute=0, second=0, microsecond=0) + timezone.timedelta(hours=1)
 		date_limit = start_time.replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=2)
-		while hour_break < end_time and hour_break < date_limit:
-			time_list.append(hour_break)
-			hour_break += timezone.timedelta(hours=1)
+		while hour_break < date_limit:
+			if end_time is not None and hour_break < end_time:
+				time_list.append(hour_break)
+				hour_break += timezone.timedelta(hours=1)
+			else:
+				break
 	if queryset is None:
 		queryset = get_running_executions_within(start_time, end_time)
 	for execution in queryset:
 		if execution.start_time >= start_time:
 			time_list.append(execution.start_time)
-		if execution.end_time is not None and execution.end_time < end_time:
-			time_list.append(execution.end_time)
+		if execution.end_time is not None and (end_time is None or execution.end_time < end_time):
+				time_list.append(execution.end_time)
 	time_list.sort()
 	return time_list
 
@@ -244,7 +224,7 @@ def schedule_execution(execution, debug=False):
 				return 2
 			else:
 				print("Unable to shift running executions.")
-				if chosen_time is not None:
+				if chosen_time is not None and chosen_time != INF_DATE:
 					start_execution(execution, chosen_time, debug)
 					check_high_demand(chosen_time, calculate_execution_end_time(execution, chosen_time), now, debug)
 					return 3
@@ -255,8 +235,9 @@ def schedule_execution(execution, debug=False):
 
 def schedule_later(execution, debug=False):
 	now = timezone.now()
-	available_time = get_available_execution_time(execution, now)
-	start_execution(execution, available_time, debug)
+	available_periods = get_available_execution_times(execution, now)
+	chosen_time = choose_execution_time(execution, available_periods)
+	start_execution(execution, chosen_time, debug)
 
 def shift_executions(execution, start_time, debug=False):
 	priority = calculate_weighted_priority(execution)
@@ -288,7 +269,7 @@ def interrupt_shiftable_executions(start_time, end_time, rated_power, priority):
 	interrupted = []
 	for execution in shiftable_executions:
 		interrupt_execution(execution)
-		running_executions = get_running_executions_within(start_time, end_time)
+		running_executions = get_running_executions_within(start_time, end_time).exclude(id=execution.id)
 		minimum_power_available = AppVals.get_consumption_threshold() - get_maximum_consumption_within(start_time, end_time, running_executions)
 		interrupted.append(execution)
 		if minimum_power_available >= rated_power:
@@ -328,11 +309,12 @@ def anticipate_pending_executions(debug=False):
 	for execution in pending_executions:
 		print(f"Attempting to anticipate execution {execution.id}.")
 		now = timezone.now()
-		available_time = get_available_execution_time(execution, now)
-		if available_time == now:
+		available_periods = get_available_execution_times(execution, now)
+		chosen_time = choose_execution_time(execution, available_periods)
+		if chosen_time == now:
 			start_execution(execution, None, debug)
-		elif available_time < execution.start_time:
-			start_execution(execution, available_time, debug)
+		elif chosen_time < execution.start_time:
+			start_execution(execution, chosen_time, debug)
 		else:
 			print("Unable to anticipate execution.")
 

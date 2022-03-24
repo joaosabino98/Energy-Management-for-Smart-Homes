@@ -62,7 +62,7 @@ def schedule_battery_discharge_on_high_demand(current_time):
     return ext.schedule_battery_charge_on_low_demand(current_time, debug=True)
 
 def start_battery_executions(current_time, energy_needed, day_periods):
-    return ext.start_battery_executions(current_time, energy_needed, day_periods, debug=True):
+    return ext.start_battery_executions(current_time, energy_needed, day_periods, debug=True)
 
 def create_battery_execution(start_time, end_time, power):
     return ext.create_battery_execution(start_time, end_time, power)
