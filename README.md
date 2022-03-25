@@ -44,7 +44,6 @@ core.start()
 home = Home.objects.get(pk=1)
 e = Execution.objects.create(home=home, appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
 core.schedule_execution(e)
-
 e.delete()
 ```
 ### Test execution finish 
@@ -62,41 +61,39 @@ time.sleep(6)
 e = Execution.objects.get(pk=e.id)
 assert e.status() == "Finished"
 e.delete()
-
 ```
 
 ---
 
 ## General To-do
- * New scheduling strategies: peak-shaving, load balancing
- . Peak-shaving: application scheduled to nearest available time
- . Load balancing: scheduled 
- * Implement get_all_available_execution_times and choose_execution_time, based on scheduling strategy
- * Implement multi-house mode recommendations in choose_execution_time
- * UI, etc
+- Implement multi-house mode recommendations in choose_execution_time
+    * Three best times according to house strategy are sent to aggregator
+    * Aggregator decides on best time according to global consumption (aggregated load balancing)
 
-### Battery storage logic
+### Scheduling strategies
+1. Peak-shaving: application scheduled to nearest available time
+2. Load balancing: scheduled to period with less consumption
 
-1. manage battery charging
-    * if solar panel energy available, charge during solar hours
-    * if no solar energy, charge whenever consumption < 30% during day (up to 50% of available energy)
+### Battery Storage System
+1. Manage battery charging
+    * if solar energy is enough to charge battery, charge exclusively during solar hours
+    * if solar energy is available but not enough, charge using all solar energy + percentage of energy from grid
+    * if no solar energy, charge whenever consumption < 37.5% during day (up to 50% of available energy)
 
+2. Manage battery consumption
+    * schedule whenever consumption > 62.5% (down to 50%)
+    * schedule if an increased threshold is needed for some execution
 
-2. manage battery consumption
-- on peak-shaving:
-    * schedule whenever consumption > 70%
-- on load balancing:
-    * schedule whenever consumption > 70% (down to 50%)
-- on time-band:
-    * during high hours, schedule whenever consumption > power output during high hours
-    * during average hours, schedule whenever consumption > 80%
+3. Rules
+    * Battery can't charge and discharge at the same time.
+    * Battery can't be discharged below DOD
 
-How to manage charge status?
-Battery can't discharge and charge at the same time.
-Battery may not be fully discharged over day.
- - use last full charge-discharge data to calculate energy needed in next recharge
- - schedule charge every midnight / when energy is depleted?
- - can't schedule discharges if charge is underway/incomplete
+4. Implementation details
+    * Battery charge is scheduled every midnight or when depleted
+    * Battery charges can be interrupted as long as there's enough energy to accomodate all scheduled discharges
+    * Last full recharge time is set when battery capacity is full, to facilitate future schedulings
+    * Multiple battery discharges can run at the same time, as long as maximum power output is respected
+    * Battery charge can be scheduled when energy is not fully depleted or discharges are scheduled: charges will be scheduled as long as maximum energy capacity isn't exceeded in future schedulings
 
 ---
 
