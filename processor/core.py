@@ -5,9 +5,10 @@ from django.utils import timezone
 from apscheduler.triggers.cron import CronTrigger
 import processor.apsched as aps
 import processor.external_energy as ext
+import processor.aggregator_client as cli
 
 from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOAD_DISTRIBUTION, LOW_PRIORITY, NORMAL, PEAK_SHAVING, TIME_BAND
-from scheduler.models import AppVals, BatteryStorageSystem, Execution
+from scheduler.models import Home, Execution
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 django.setup()
@@ -22,8 +23,9 @@ def finish_execution_job(id):
 	execution = Execution.objects.get(pk=id)
 	if execution.is_finished is False and execution.is_interrupted is False:
 		execution.set_finished()
-	if BatteryStorageSystem.compare_appliance(execution.appliance):
-		battery = BatteryStorageSystem.get_system()
+	home = Home.objects.get(pk=home_id)
+	if home.compare_BSS_appliance(execution.appliance):
+		battery = home.batterystoragesystem
 		energy_stored = ext.get_battery_energy(execution.end_time)
 		if energy_stored >= battery.total_energy_capacity * 0.99:
 			battery.last_full_charge_time = execution.end_time
@@ -39,7 +41,8 @@ def schedule_battery_charge_job():
 	ext.schedule_battery_charge()
 
 def change_threshold(threshold):
-	AppVals.set_consumption_threshold(threshold)
+	home = Home.objects.get(pk=home_id)
+	home.set_consumption_threshold(threshold)
 	anticipate_pending_executions()
 
 def get_unfinished_executions():
@@ -62,10 +65,11 @@ def get_running_executions_within(start_time, end_time):
 
 def get_lower_priority_shiftable_executions_within(start_time, end_time, target_power, target_priority):
 	shiftable_executions = []
+	home = Home.objects.get(pk=home_id)
 	for execution in get_running_executions_within(start_time, end_time):
 		priority = calculate_weighted_priority(execution)
 		if priority < target_priority and execution.profile.schedulability is INTERRUPTIBLE:
-			if BatteryStorageSystem.compare_appliance(execution.appliance) and execution.profile.rated_power > 0:
+			if home.compare_BSS_appliance(execution.appliance) and execution.profile.rated_power > 0:
 				if ext.is_battery_execution_interruptable(execution):
 					shiftable_executions.append(execution)
 			else:
@@ -108,21 +112,27 @@ def calculate_execution_end_time(execution, start_time, duration=None):
 		end_time = start_time + remaining_execution_time
 	return end_time
 
-def choose_execution_time(execution, available_periods, strategy=AppVals.get_strategy()):
+def choose_execution_time(execution, available_periods):
 	maximum_delay = execution.profile.maximum_delay
 	if maximum_delay is not None:
 		available_periods = dict(filter(lambda e: e[0][0] - execution.request_time < maximum_delay, available_periods.items()))
 	if available_periods:
-		if strategy is PEAK_SHAVING:
-			earliest_start_time = next(iter(available_periods))[0]
-			return earliest_start_time
-		elif strategy is LOAD_DISTRIBUTION:
-			sorted_periods = {k: v for k, v in sorted(available_periods.items(), key=lambda item: item[1])}
-			for period in sorted_periods:
-				if period[0] - execution.request_time < maximum_delay:
-					return period[0]
+		home = Home.objects.get(pk=home_id)
+		strategy = home.strategy
+		if home.accept_recommendations:
+			start_time = cli.send_choice_request(available_periods, execution.rated_power)
+			return start_time
 		else:
-			pass
+			if strategy is PEAK_SHAVING:
+				earliest_start_time = next(iter(available_periods))[0]
+				return earliest_start_time
+			elif strategy is LOAD_DISTRIBUTION:
+				sorted_periods = {k: v for k, v in sorted(available_periods.items(), key=lambda item: item[1])}
+				for period in sorted_periods:
+					if period[0] - execution.request_time < maximum_delay:
+						return period[0]
+			else:
+				pass
 
 def get_available_execution_times(execution, minimum_start_time=timezone.now(), duration=None):
 	available_periods = {}
@@ -201,9 +211,10 @@ def finish_execution(execution, debug=False):
 
 def schedule_execution(execution, debug=False):
 	now = timezone.now()
-	strategy = AppVals.get_strategy()
+	home = Home.objects.get(pk=home_id)
+	strategy = home.strategy
 	available_periods = get_available_execution_times(execution, now)
-	chosen_time = choose_execution_time(execution, available_periods, strategy)
+	chosen_time = choose_execution_time(execution, available_periods)
 
 	if strategy is PEAK_SHAVING:
 		if chosen_time == now:
@@ -247,10 +258,12 @@ def shift_executions(execution, start_time, debug=False):
 	if success:
 		print("Lower priority running executions found.")
 		start_execution(execution, None, debug)
+		home = Home.objects.get(pk=home_id)
 		for execution in interrupted:
 			#TODO: if it's battery, schedule with lower wattage
-			if not BatteryStorageSystem.compare_appliance(execution.appliance):
+			if not home.compare_BSS_appliance(execution.appliance):
 				new = Execution.objects.create(
+					home=home,
 					appliance=execution.appliance,
 					profile=execution.profile,
 					previous_progress_time=execution.end_time-execution.start_time+execution.previous_progress_time,
@@ -259,9 +272,10 @@ def shift_executions(execution, start_time, debug=False):
 		return success
 
 def interrupt_shiftable_executions(start_time, end_time, rated_power, priority):
+	home = Home.objects.get(pk=home_id)
 	running_executions = get_running_executions_within(start_time, end_time)
 	shiftable_executions = get_lower_priority_shiftable_executions_within(start_time, end_time, rated_power, priority)
-	minimum_power_available = AppVals.get_consumption_threshold() - get_maximum_consumption_within(start_time, end_time, running_executions)
+	minimum_power_available = home.consumption_threshold - get_maximum_consumption_within(start_time, end_time, running_executions)
 	maximum_shiftable_power = get_maximum_consumption_within(start_time, end_time, shiftable_executions)
 
 	if minimum_power_available + maximum_shiftable_power < rated_power:
@@ -270,7 +284,7 @@ def interrupt_shiftable_executions(start_time, end_time, rated_power, priority):
 	for execution in shiftable_executions:
 		interrupt_execution(execution)
 		running_executions = get_running_executions_within(start_time, end_time).exclude(id=execution.id)
-		minimum_power_available = AppVals.get_consumption_threshold() - get_maximum_consumption_within(start_time, end_time, running_executions)
+		minimum_power_available = home.consumption_threshold - get_maximum_consumption_within(start_time, end_time, running_executions)
 		interrupted.append(execution)
 		if minimum_power_available >= rated_power:
 			break
@@ -278,7 +292,8 @@ def interrupt_shiftable_executions(start_time, end_time, rated_power, priority):
 	return True, interrupted
 
 def check_high_demand(start_time, end_time, current_time, debug=False):
-	if BatteryStorageSystem.get_system() is not None and \
+	home = Home.objects.get(pk=home_id)
+	if hasattr(home, "batterystoragesystem") and \
 		get_maximum_consumption_within(start_time, end_time) > ext.get_power_available_within(start_time, end_time) * 0.7:
 		print("Attempting to schedule battery discharge on high demand.")
 		ext.schedule_battery_discharge_on_high_demand(current_time, debug)
@@ -327,22 +342,34 @@ def anticipate_high_priority_executions(debug=False):
 			if not success:
 				print("Unable to anticipate execution.")
 
+#TODO: send power consumption times
+def start_accepting_reccomendations():
+	home = Home.objects.get(pk=home_id)
+	home.set_accept_recommendations(True)
+	cli.start()
+
 def start():
+	home = Home.objects.get(pk=home_id)
 	aps.start()
 	bgsched.add_job(
 		anticipate_high_priority_executions_job,
 		trigger=CronTrigger(minute=f"*/{step}"),
 		id="anticipate_high_priority_executions",
 		replace_existing=True)
-	if BatteryStorageSystem.get_system() is not None:
+	if hasattr(home, "batterystoragesystem"):
 		bgsched.add_job(
 			schedule_battery_charge_job,
 			trigger=CronTrigger(hour=0),
 			id="schedule_battery_charge",
 			replace_existing=True
 		)
-	AppVals.set_running(True)
+	home.set_running(True)
 	print("Start process complete.")
+
+def set_id(id):
+	global home_id
+	home_id = id
+
 
 step = 15
 bgsched = aps.scheduler

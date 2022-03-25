@@ -1,6 +1,6 @@
 [
    {
-      "model":"scheduler.appvals",
+      "model":"scheduler.home",
       "pk":1,
       "fields":{
          "consumption_threshold":8000,
@@ -244,6 +244,7 @@
       "model":"scheduler.appliance",
       "pk":1,
       "fields":{
+         "home": 1,
          "name":"Television (Living Room)",
          "profiles":[20],
          "maximum_duration_of_usage":"08:00:00"
@@ -253,6 +254,7 @@
       "model":"scheduler.appliance",
       "pk":2,
       "fields":{
+         "home": 1,
          "name":"Microwave",
          "profiles":[1,2,3],
          "maximum_duration_of_usage":"00:20:00"
@@ -262,6 +264,7 @@
       "model":"scheduler.appliance",
       "pk":3,
       "fields":{
+         "home": 1,
          "name":"Oven",
          "profiles":[4],
          "maximum_duration_of_usage":"01:00:00"
@@ -271,6 +274,7 @@
       "model":"scheduler.appliance",
       "pk":4,
       "fields":{
+         "home": 1,
          "name":"Heater (Bedroom)",
          "profiles":[17],
          "maximum_duration_of_usage":"01:30:00"
@@ -280,6 +284,7 @@
       "model":"scheduler.appliance",
       "pk":5,
       "fields":{
+         "home": 1,
          "name":"Water Heater",
          "profiles":[19],
          "maximum_duration_of_usage":"03:00:00"
@@ -289,6 +294,7 @@
       "model":"scheduler.appliance",
       "pk":6,
       "fields":{
+         "home": 1,
          "name":"Washing Machine",
          "profiles":[10,11],
          "maximum_duration_of_usage":"01:00:00"
@@ -298,6 +304,7 @@
       "model":"scheduler.appliance",
       "pk":7,
       "fields":{
+         "home": 1,
          "name":"Dishwasher",
          "profiles":[7,8,9],
          "maximum_duration_of_usage":"01:00:00"
@@ -307,6 +314,7 @@
       "model":"scheduler.appliance",
       "pk":8,
       "fields":{
+         "home": 1,
          "name":"Air Conditioner",
          "profiles":[5],
          "maximum_duration_of_usage":"04:00:00"
@@ -316,6 +324,7 @@
       "model":"scheduler.appliance",
       "pk":9,
       "fields":{
+         "home": 1,
          "name":"Fridge",
          "profiles":[6]
       }
@@ -324,6 +333,7 @@
       "model":"scheduler.appliance",
       "pk":10,
       "fields":{
+         "home": 1,
          "name":"Coffee Machine",
          "profiles":[13],
          "maximum_duration_of_usage":"00:15:00"
@@ -333,6 +343,7 @@
       "model":"scheduler.appliance",
       "pk":11,
       "fields":{
+         "home": 1,
          "name":"Vacuum Cleaner",
          "profiles":[12],
          "maximum_duration_of_usage":"00:30:00"
@@ -342,6 +353,7 @@
       "model":"scheduler.appliance",
       "pk":12,
       "fields":{
+         "home": 1,
          "name":"Electric Vehicle",
          "profiles":[21],
          "maximum_duration_of_usage":"08:00:00"
@@ -351,6 +363,7 @@
       "model":"scheduler.appliance",
       "pk":13,
       "fields":{
+         "home": 1,
          "name":"[DEBUG] 5 secs execution",
          "profiles":[13],
          "maximum_duration_of_usage":"00:00:05"
@@ -360,6 +373,7 @@
       "model":"scheduler.batterystoragesystem",
       "pk":1,
       "fields":{
+         "home":1,
          "continuous_power":5500,
          "total_energy_capacity":18000,
          "depth_of_discharge":0.9
@@ -369,6 +383,7 @@
       "model":"scheduler.photovoltaicsystem",
       "pk":1,
       "fields":{
+         "home":1,
          "latitude": 38.762,
          "longitude": -9.155,
          "tilt": 20,

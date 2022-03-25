@@ -3,13 +3,14 @@ import django
 import os
 import re
 from math import floor
-from scheduler.models import ProductionData
+from scheduler.models import PhotovoltaicSystem, ProductionData
 from django.utils import timezone
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 django.setup()
 
 directory = f'{django.conf.settings.BASE_DIR}/solardata'
+pv = PhotovoltaicSystem.objects.last()
 
 for filename in os.listdir(directory):
     f = os.path.join(directory, filename)
@@ -21,5 +22,5 @@ for filename in os.listdir(directory):
             month = timezone.datetime.strptime(month_name, "%B").month
             for row in csv_reader:
                 watts = floor(float(row[1])*1000)
-                ProductionData.objects.create(month=month, hour=row[0], average_power_generated=watts)
+                ProductionData.objects.create(system=pv, month=month, hour=row[0], average_power_generated=watts)
             print(f"Imported data from {filename}.")

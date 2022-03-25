@@ -1,7 +1,7 @@
 import os
 import django
 import processor.core as core
-from scheduler.models import AppVals, BatteryStorageSystem, Execution, NoBSSystemException, NoPVSystemException, PhotovoltaicSystem, ProductionData, Profile
+from scheduler.models import Home, BatteryStorageSystem, Execution, NoBSSystemException, NoPVSystemException, PhotovoltaicSystem, ProductionData, Profile
 from django.utils import timezone
 from math import floor
 
@@ -11,19 +11,21 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 django.setup()
 
 def get_power_available_within(start_time, end_time):
-	threshold = AppVals.get_consumption_threshold()
-	battery_discharge = get_minimum_battery_power_discharge_within(start_time, end_time)
-	production = get_minimum_production_within(start_time, end_time)
-	if battery_discharge is not None:
-		threshold += battery_discharge
-	if production is not None:
-		threshold += production
-	return threshold
+    home = Home.objects.get(pk=core.home_id)
+    threshold = home.consumption_threshold
+    battery_discharge = get_minimum_battery_power_discharge_within(start_time, end_time)
+    production = get_minimum_production_within(start_time, end_time)
+    if battery_discharge is not None:
+        threshold += battery_discharge
+    if production is not None:
+        threshold += production
+    return threshold
 
 def get_battery_executions_within(start_time, end_time):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         return Execution.objects.none()
+    battery = home.batterystoragesystem
     if end_time is None:
         return Execution.objects.filter(appliance=battery.appliance, end_time__gt=start_time)
     return Execution.objects.filter(appliance=battery.appliance, start_time__lte=end_time, end_time__gt=start_time)
@@ -46,27 +48,31 @@ def get_battery_discharge_reference_times_within(start_time, end_time):
     return time_list
 
 def get_last_battery_execution():
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         return Execution.objects.none()
+    battery = home.batterystoragesystem
     return Execution.objects.filter(appliance=battery.appliance).order_by('end_time').last()
 
 def get_last_battery_charge():
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         return Execution.objects.none()
+    battery = home.batterystoragesystem
     return Execution.objects.filter(appliance=battery.appliance, profile__rated_power__gt=0).order_by('end_time').last()
 
 def get_last_battery_discharge():
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         return Execution.objects.none()
+    battery = home.batterystoragesystem
     return Execution.objects.filter(appliance=battery.appliance, profile__rated_power__lt=0).order_by('end_time').last()
 
 def get_battery_energy(time=None):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         return 0
+    battery = home.batterystoragesystem
     queryset = Execution.objects.filter(appliance=battery.appliance, start_time__gte=battery.last_full_charge_time)
     if time is not None:
         queryset = queryset.exclude(start_time__gte=time)
@@ -79,9 +85,10 @@ def get_battery_energy(time=None):
     return energy
 
 def get_allocable_battery_energy_charge(day_periods):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         raise NoBSSystemException()
+    battery = home.batterystoragesystem
     energy_to_allocate = 0
     for period in day_periods:
         if get_battery_executions_within(period[0], period[1]):
@@ -91,9 +98,10 @@ def get_allocable_battery_energy_charge(day_periods):
     return energy_to_allocate
 
 def get_maximum_possible_battery_energy_charge(start_time):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         return 0
+    battery = home.batterystoragesystem
     maximum_energy = battery.total_energy_capacity
     maximum_energy_available = energy_available = get_battery_energy(start_time)
     queryset = get_battery_executions_within(start_time, None)
@@ -120,7 +128,8 @@ def get_battery_power_discharge(time):
 
 def get_minimum_battery_power_discharge_within(start_time, end_time):
     minimum_discharge = None
-    if BatteryStorageSystem.get_system() is not None:
+    home = Home.objects.get(pk=core.home_id)
+    if hasattr(home, "batterystoragesystem"):
         reference_times = get_battery_discharge_reference_times_within(start_time, end_time)
         for time in reference_times:
             power_discharge = get_battery_power_discharge(time)
@@ -130,7 +139,8 @@ def get_minimum_battery_power_discharge_within(start_time, end_time):
 
 def get_maximum_battery_power_discharge_within(start_time, end_time):
     maximum_discharge = 0
-    if BatteryStorageSystem.get_system() is not None:
+    home = Home.objects.get(pk=core.home_id)
+    if hasattr(home, "batterystoragesystem"):
         reference_times = get_battery_discharge_reference_times_within(start_time, end_time)
         for time in reference_times:
             power_discharge = get_battery_power_discharge(time)
@@ -139,9 +149,10 @@ def get_maximum_battery_power_discharge_within(start_time, end_time):
     return maximum_discharge
 
 def get_maximum_possible_battery_energy_discharge(start_time):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         return 0
+    battery = home.batterystoragesystem
     minimum_energy = floor(battery.total_energy_capacity * (1 - battery.depth_of_discharge))
     minimum_energy_available = energy_available = get_battery_energy(start_time)
     queryset = get_battery_executions_within(start_time, None)
@@ -158,17 +169,18 @@ def get_maximum_possible_battery_energy_discharge(start_time):
 # 3. Battery available power output > power needed
 # 4. Battery energy unscheduled for consumption > energy needed
 def get_battery_discharge_available(start_time, end_time):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None or get_battery_charge_within(start_time, end_time):
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem") or get_battery_charge_within(start_time, end_time):
         return 0
+    battery = home.batterystoragesystem
     power_discharge = get_maximum_battery_power_discharge_within(start_time, end_time)
     maximum_remaining_power_discharge = battery.continuous_power - power_discharge
     maximum_remaining_energy_discharge = get_maximum_possible_battery_energy_discharge(start_time)
     return min(maximum_remaining_power_discharge, energy_to_power(start_time, end_time, maximum_remaining_energy_discharge))
 
 def is_battery_discharge_available(execution, start_time):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None or get_battery_charge_within(start_time, end_time):
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem") or get_battery_charge_within(start_time, end_time):
         return False
     end_time = core.calculate_execution_end_time(execution, start_time)
     battery_energy_needed = power_to_energy(start_time, end_time, execution.profile.rated_power)
@@ -179,8 +191,8 @@ def is_battery_discharge_available(execution, start_time):
 
 # battery charge is interruptible if future consumptions don't consume beyond depth of discharge
 def is_battery_charge_interruptible(execution):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         raise NoBSSystemException()
     battery_energy_provided = power_to_energy(execution.start_time, execution.end_time, execution.profile.rated_power)
     if get_maximum_possible_battery_energy_discharge(execution.end_time) > battery_energy_provided:
@@ -189,9 +201,10 @@ def is_battery_charge_interruptible(execution):
         return False
 
 def create_battery_execution(start_time, end_time, power):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         raise NoBSSystemException()
+    battery = home.batterystoragesystem
     profile, _ = battery.appliance.profiles.get_or_create(
             name=f"BSS {power}W Charge" if power > 0 else f"BSS {-power}W Discharge",
             defaults={
@@ -203,6 +216,7 @@ def create_battery_execution(start_time, end_time, power):
             }
         )
     return Execution.objects.create(
+        home=home,
         appliance=battery.appliance,
         profile=profile,
         start_time=start_time,
@@ -210,9 +224,10 @@ def create_battery_execution(start_time, end_time, power):
     )
 
 def start_battery_executions(current_time, energy_needed, day_periods, debug=False):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         raise NoBSSystemException()
+    battery = home.batterystoragesystem
     for period in day_periods:
         if get_battery_executions_within(period[0], period[1]):
             continue
@@ -228,8 +243,8 @@ def start_battery_executions(current_time, energy_needed, day_periods, debug=Fal
 
 # used before executions are scheduled to temporarily increase threshold
 def schedule_battery_discharge_on_consumption_above_threshold(execution, current_time, start_time, debug=False):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         raise NoBSSystemException()
     end_time = core.calculate_execution_end_time(execution, start_time)
     battery_power_needed = max(execution.profile.rated_power - get_power_available_within(start_time, end_time), get_battery_discharge_available(start_time, end_time))
@@ -241,8 +256,9 @@ def schedule_battery_discharge_on_consumption_above_threshold(execution, current
 
 # used after executions are scheduled to ensure load balancing
 def schedule_battery_discharge_on_high_demand(current_time, debug=False):
-    battery = BatteryStorageSystem.get_system()
-    if battery is not None:
+    home = Home.objects.get(pk=core.home_id)
+    if hasattr(home, "batterystoragesystem"):
+        battery = home.batterystoragesystem
         high_demand = get_high_consumption_periods(current_time)
         for period in high_demand:
             if get_battery_discharge_available(period[0], period[1]) > battery.continuous_power * 0.1:
@@ -254,31 +270,31 @@ def schedule_battery_discharge_on_high_demand(current_time, debug=False):
                     core.start_execution(execution, period[0], debug)
 
 def schedule_battery_charge_on_solar(current_time, start_time, energy_needed, debug=False):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         raise NoBSSystemException()
-    photovoltaic_system = PhotovoltaicSystem.get_system()
-    if photovoltaic_system is not None:
-        low_demand = get_low_consumption_solar_day_periods(start_time, 0)
+    if not hasattr(home, "photovoltaicsystem"):
+        raise NoPVSystemException()
+    low_demand = get_low_consumption_solar_day_periods(start_time, 0)
+    energy_to_allocate = get_allocable_battery_energy_charge(low_demand)
+    print(f"Energy on stategy 1: {energy_to_allocate}Wh")
+    if energy_to_allocate < energy_needed: 
+        low_demand = get_low_consumption_solar_day_periods(start_time, 0.1)
         energy_to_allocate = get_allocable_battery_energy_charge(low_demand)
-        print(f"Energy on stategy 1: {energy_to_allocate}Wh")
+        print(f"Energy on stategy 2: {energy_to_allocate}Wh")
         if energy_to_allocate < energy_needed: 
-            low_demand = get_low_consumption_solar_day_periods(start_time, 0.1)
+            low_demand = get_low_consumption_solar_day_periods(start_time, 0.25)
             energy_to_allocate = get_allocable_battery_energy_charge(low_demand)
-            print(f"Energy on stategy 2: {energy_to_allocate}Wh")
+            print(f"Energy on stategy 3: {energy_to_allocate}Wh")
             if energy_to_allocate < energy_needed: 
-                low_demand = get_low_consumption_solar_day_periods(start_time, 0.25)
+                low_demand = get_low_consumption_day_periods(start_time)
                 energy_to_allocate = get_allocable_battery_energy_charge(low_demand)
-                print(f"Energy on stategy 3: {energy_to_allocate}Wh")
-                if energy_to_allocate < energy_needed: 
-                    low_demand = get_low_consumption_day_periods(start_time)
-                    energy_to_allocate = get_allocable_battery_energy_charge(low_demand)
-                    print(f"Energy on stategy 4: {energy_to_allocate}Wh")
-        start_battery_executions(current_time, energy_needed, low_demand, debug)
+                print(f"Energy on stategy 4: {energy_to_allocate}Wh")
+    start_battery_executions(current_time, energy_needed, low_demand, debug)
 
 def schedule_battery_charge_on_low_demand(current_time, start_time, energy_needed, debug=False):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
         raise NoBSSystemException()
     low_demand = get_low_consumption_day_periods(start_time)
     start_battery_executions(current_time, energy_needed, low_demand, debug)
@@ -286,18 +302,19 @@ def schedule_battery_charge_on_low_demand(current_time, start_time, energy_neede
 # Should be called after last battery execution.
 # If not, it will charge as much as future executions allow without going over total capacity
 def schedule_battery_charge(start_time=None, debug=False):
-    battery = BatteryStorageSystem.get_system()
-    if battery is None:
-        return NoBSSystemException()
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "batterystoragesystem"):
+        raise NoBSSystemException()
+    battery = home.batterystoragesystem
     now = timezone.now()
     if start_time is None:
         start_time = now
     energy_needed = get_maximum_possible_battery_energy_charge(start_time)
     if energy_needed > battery.total_energy_capacity * 0.01:
-        if PhotovoltaicSystem.get_system() is None:
-            schedule_battery_charge_on_low_demand(now, start_time, energy_needed, debug)
-        else:
+        if hasattr(home, "photovoltaicsystem"):
             schedule_battery_charge_on_solar(now, start_time, energy_needed, debug)
+        else:
+            schedule_battery_charge_on_low_demand(now, start_time, energy_needed, debug)
 
 def get_high_consumption_periods(start_time):
     day_periods = {}
@@ -333,12 +350,13 @@ def get_low_consumption_day_periods(start_time):
 
 def get_low_consumption_solar_day_periods(start_time, threshold_multiplier):
     day_periods = {}
-    if PhotovoltaicSystem.get_system() is not None:
+    home = Home.objects.get(pk=core.home_id)
+    if hasattr(home, "photovoltaicsystem"):
         reference_times = get_day_reference_times(start_time)
         prev_time = None
         for time in reference_times:
             if prev_time is not None and prev_time >= start_time:
-                low_consumption_threshold = floor(AppVals.get_consumption_threshold() * threshold_multiplier) + get_power_production(prev_time)
+                low_consumption_threshold = floor(home.consumption_threshold * threshold_multiplier) + get_power_production(prev_time)
                 consumption = core.get_power_consumption(prev_time)
                 if low_consumption_threshold > consumption:
                     day_periods[(prev_time, time)] = low_consumption_threshold - consumption
@@ -355,15 +373,20 @@ def get_day_reference_times(current_time):
     return reference_times
 
 def get_power_production(time):
+    home = Home.objects.get(pk=core.home_id)
+    if not hasattr(home, "photovoltaicsystem"):
+        raise NoPVSystemException()
+    pv = home.photovoltaicsystem
     power = 0
-    queryset = ProductionData.objects.filter(month=time.month, hour=time.hour)
+    queryset = ProductionData.objects.filter(system=pv, month=time.month, hour=time.hour)
     for production in queryset:
         power += production.average_power_generated
     return power
 
 def get_minimum_production_within(start_time, end_time):
     minimum_production = None
-    if PhotovoltaicSystem.objects.exists():
+    home = Home.objects.get(pk=core.home_id)
+    if hasattr(home, "photovoltaicsystem"):
         time = start_time
         while time < end_time:
             power_production = get_power_production(time)

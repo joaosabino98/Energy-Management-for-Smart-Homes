@@ -7,62 +7,37 @@ from django.dispatch import receiver
 
 # Create your models here.
 
-class AppVals(models.Model):
+class Home(models.Model):
     consumption_threshold = models.IntegerField(help_text="Consumption threshold (W)")
     accept_recommendations = models.BooleanField(default=False)
     strategy = models.IntegerField(choices=STRATEGY_OPTIONS)
     is_running = models.BooleanField()
 
-    @classmethod
-    def get_consumption_threshold(cls):
+    def set_consumption_threshold(self, new_val):
         with transaction.atomic():
-            val = cls.objects.select_for_update().first()
-            return val.consumption_threshold
-    
-    @classmethod
-    def set_consumption_threshold(cls, new_val):
-        with transaction.atomic():
-            val = cls.objects.select_for_update().first()
-            val.consumption_threshold = new_val
-            val.save()
+            self.consumption_threshold = new_val
+            self.save()
 
-    @classmethod
-    def get_accept_recommendations(cls):
+    def set_accept_recommendations(self, new_val):
         with transaction.atomic():
-            val = cls.objects.select_for_update().first()
-            return val.accept_recommendations
+            self.accept_recommendations = new_val
+            self.save()
 
-    @classmethod
-    def set_accept_recommendations(cls, new_val):
+    def set_strategy(self, new_val):
         with transaction.atomic():
-            val = cls.objects.select_for_update().first()
-            val.accept_recommendations = new_val
-            val.save()
+            self.strategy = new_val
+            self.save()        
 
-    @classmethod
-    def get_strategy(cls):
+    def set_running(self, new_val):
         with transaction.atomic():
-            val = cls.objects.select_for_update().first()
-            return val.strategy
+            self.is_running = new_val
+            self.save()
 
-    @classmethod
-    def set_strategy(cls, new_val):
-        val = cls.objects.select_for_update().first()
-        val.strategy = new_val
-        val.save()        
-
-    @classmethod
-    def get_running(cls):
-        with transaction.atomic():
-            val = cls.objects.select_for_update().first()
-            return val.is_running
-
-    @classmethod
-    def set_running(cls, new_val):
-        with transaction.atomic():
-            val = cls.objects.select_for_update().first()
-            val.is_running = new_val
-            val.save()
+    def compare_BSS_appliance(self, appliance):
+        if not hasattr(self, "batterystoragesystem"):
+            return False
+        else:
+            return self.batterystoragesystem.appliance.id == appliance.id
 
 '''
 Profile class
@@ -91,6 +66,7 @@ Added by the user.
 May require switching the profile for different uses.
 '''
 class Appliance(models.Model):
+    home = models.ForeignKey(Home, on_delete=models.CASCADE)
     name = models.CharField(max_length=100, unique=True)
     profiles = models.ManyToManyField(Profile)
     maximum_duration_of_usage = models.DurationField(null=True)
@@ -109,6 +85,7 @@ If execution ends with interruption, a new execution needs to be created to rest
 End time is by default the start time + maximum duration of usage.
 '''
 class Execution(models.Model):
+    home = models.ForeignKey(Home, on_delete=models.CASCADE)
     request_time = models.DateTimeField(default=timezone.now)
     start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
@@ -186,26 +163,12 @@ class Execution(models.Model):
 # Self-production: PV, batteries
 
 class BatteryStorageSystem(models.Model):
+    home = models.OneToOneField(Home, on_delete=models.CASCADE)
     appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE, null=True, blank=True)
     total_energy_capacity = models.IntegerField(help_text="Total energy capacity (Wh)")
     continuous_power = models.IntegerField(help_text="Continuous charge/discharge power (W)")
     last_full_charge_time = models.DateTimeField(default=timezone.now)
     depth_of_discharge = models.FloatField(help_text="Depth-of-Discharge", default=1)
-
-    @classmethod
-    def get_system(cls):
-        with transaction.atomic():
-            val = cls.objects.select_for_update().first()
-            return val
-    
-    @classmethod
-    def compare_appliance(cls, appliance):
-        with transaction.atomic():
-            val = cls.objects.select_for_update().first()
-            if val is not None:
-                return appliance.id == val.appliance.id
-            else:
-                return False
 
     def set_last_full_charge_time(self, last_full_charge_time=timezone.now):
         with transaction.atomic():
@@ -217,6 +180,7 @@ def create_bss_appliance(sender, instance, created, **kwargs):
     if created:
         charge_time = timezone.timedelta(seconds=floor(instance.total_energy_capacity / instance.continuous_power * 3600))
         instance.appliance, _ = Appliance.objects.get_or_create(
+                    home=instance.home,
                     name="Battery Storage System",
                     defaults={
                         "maximum_duration_of_usage": charge_time
@@ -225,32 +189,19 @@ def create_bss_appliance(sender, instance, created, **kwargs):
         instance.save()
 
 class PhotovoltaicSystem(models.Model):
+    home = models.OneToOneField(Home, on_delete=models.CASCADE)
     latitude = models.FloatField()
     longitude = models.FloatField()
     tilt = models.IntegerField()
     azimut = models.IntegerField()
     capacity = models.IntegerField(help_text="System name plate capacity (Wdc)")
 
-    @classmethod
-    def get_system(cls):
-        with transaction.atomic():
-            val = cls.objects.select_for_update().first()
-            return val
-
 class ProductionData(models.Model):
-    system = models.ForeignKey(PhotovoltaicSystem, on_delete=models.CASCADE, null=True, blank=True)
+    system = models.ForeignKey(PhotovoltaicSystem, on_delete=models.CASCADE)
     month_name = models.IntegerChoices("MONTH", "JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER NOVEMBER DECEMBER")
     month = models.IntegerField(choices=month_name.choices)
     hour = models.IntegerField()
     average_power_generated = models.IntegerField()
-
-    def save(self, *args, **kwargs):
-        system = PhotovoltaicSystem.get_system()
-        if system is not None:
-            self.system = system
-        else: 
-            raise NoPVSystemException("Photovoltaic System is not defined.")
-        super().save(*args, **kwargs)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['system', 'month', 'hour'], name='unique_system_hourly_value')]

@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'scheduler.apps.SchedulerConfig',
+    'aggregator.apps.AggregatorConfig',
     "django_apscheduler",
 ]
 

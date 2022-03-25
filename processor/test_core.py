@@ -37,14 +37,20 @@ def get_maximum_consumption_within(start_time, end_time, queryset=None):
 def get_positive_power_difference(rated_power, target_power):
     return core.get_positive_power_difference(rated_power, target_power)
 
-def get_available_execution_time(execution, minimum_start_time=timezone.now()):
-    return get_available_execution_time(execution, minimum_start_time)
+def calculate_execution_end_time(execution, start_time, duration=None):
+    return core.calculate_execution_end_time(execution, start_time, duration)
+
+def choose_execution_time(execution, minimum_start_time=timezone.now()):
+    return core.choose_execution_time(execution, minimum_start_time)
+
+def get_available_execution_times(execution, minimum_start_time=timezone.now()):
+    return core.get_available_execution_times(execution, minimum_start_time)
 
 def get_available_fractioned_execution_time(execution, minimum_start_time=timezone.now()):
-    return get_available_fractioned_execution_time(execution, minimum_start_time)
+    return core.get_available_fractioned_execution_time(execution, minimum_start_time)
 
 def get_consumption_reference_times_within(start_time, end_time, queryset=None):
-    return get_consumption_reference_times_within(start_time, end_time, queryset)
+    return core.get_consumption_reference_times_within(start_time, end_time, queryset)
 
 def start_execution(execution, start_time=None):
     return core.start_execution(execution, start_time, debug=True)
@@ -78,3 +84,6 @@ def anticipate_pending_executions():
 
 def anticipate_high_priority_executions():
     return core.anticipate_high_priority_executions(debug=True)
+
+def set_id(id):
+    return core.set_id(id)

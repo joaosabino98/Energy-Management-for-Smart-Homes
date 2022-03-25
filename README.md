@@ -39,8 +39,10 @@
 import processor.core as core
 import processor.external_energy as ext
 from scheduler.models import *
+core.set_id(1)
 core.start()
-e = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
+home = Home.objects.get(pk=1)
+e = Execution.objects.create(home=home, appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
 core.schedule_execution(e)
 
 e.delete()
@@ -51,8 +53,10 @@ import processor.core as core
 import processor.external_energy as ext
 from scheduler.models import *
 import time
+core.set_id(1)
 core.start()
-e = Execution.objects.create(appliance=Appliance.objects.get(pk=13),profile=Profile.objects.get(pk=13))
+home = Home.objects.get(pk=1)
+e = Execution.objects.create(home=home, appliance=Appliance.objects.get(pk=13),profile=Profile.objects.get(pk=13))
 core.schedule_execution(e)
 time.sleep(6)
 e = Execution.objects.get(pk=e.id)
