@@ -1,7 +1,7 @@
 # Energy Management for Smart Homes
 
 ## Common commands
-### Go to project folder
+### Go to project root folder
 `cd C:\Users\jsabi\Documents\Tese\home`
 
 ### Create database schema
@@ -10,7 +10,7 @@
 ### Apply schema
 `python manage.py migrate`
 
-### Create admin (jsabi)
+### Create admin
 `python manage.py createsuperuser`
 
 ### Run server
@@ -28,107 +28,140 @@
 ### Run tests
 `python manage.py test [--tag=core] [--exclude-tag=slow]`
 
-### Clean database and start development server (PowerShell script)
-`.\clean_setup.ps1`
+### Clean database and setup sample data (PowerShell script)
+`.\scripts\clean_setup.ps1`
 
-### Run schedule manager (management command)
-`python manage.py runmanager`
+---
 
-
-## Common executions (copy / paste)
-### Recreate DB and migrations, load sample fixture and run
-```
-.\scripts\clean_setup.ps1
-```
-### Run scheduler server
-```
-python manage.py runmanager
-```
 ## Shell tests
-### Create execution, schedule it and show timetable
+### Schedule execution
 ```
-from manager.schedule_core import ScheduleManager
+import processor.core as core
+import processor.external_energy as ext
 from scheduler.models import *
-import pprint
-s = ScheduleManager()
-e = Execution.objects.create(appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-s.schedule_execution(e)
-pprint.pprint(s.schedule)
+core.set_id(1)
+core.start()
+home = Home.objects.get(pk=1)
+e = Execution.objects.create(home=home, appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
+core.schedule_execution(e)
+
+e.delete()
 ```
 ### Test execution finish 
 ```
-from manager.schedule_core import ScheduleManager
+import processor.core as core
+import processor.external_energy as ext
 from scheduler.models import *
 import time
-s = ScheduleManager()
-e = Execution.objects.create(appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=13))
-s.schedule_execution(e)
-while e.status() != "Finished":
-    e = Execution.objects.get(pk=e.id)
-
+core.set_id(1)
+core.start()
+home = Home.objects.get(pk=1)
+e = Execution.objects.create(home=home, appliance=Appliance.objects.get(pk=13),profile=Profile.objects.get(pk=13))
+core.schedule_execution(e)
+time.sleep(6)
+e = Execution.objects.get(pk=e.id)
 assert e.status() == "Finished"
 e.delete()
+
 ```
 
+---
+
 ## General To-do
- * Check APScheduler support for storing jobs in db and resuming on restart (django-apscheduler) - DONE
- * Repopulate schedule daily (APScheduler decorator?) - DONE
- * Update priorities periodically (APScheduler decorator?) - DONE, requires better testing
- * FIX BUG: executions are constantly shifted back and forth because priority is recalculated - DONE
- . Add "previous_progress" field to execution - DONE
- . Don't calculate priority based on maximum wait / arrange deterministically based on current time-request time - DONE
- * Include support for energy generators (best way to represent energy addition? average, minimum, time-based?)
+ * New scheduling strategies: peak-shaving, load balancing
+ . Peak-shaving: application scheduled to nearest available time
+ . Load balancing: scheduled 
+ * Implement get_all_available_execution_times and choose_execution_time, based on scheduling strategy
+ * Implement multi-house mode recommendations in choose_execution_time
  * UI, etc
- 
-### Refactoring options:
-1. ScheduleManager process receives communications: schedule_execution, finish_execution
- - more flexible and efficient
- - ready for front-end commands
 
-2. ScheduleManager keeps checking for database changes (according to step)
- - start/finish_execution_job are no longer needed
- - new executions prompt schedule_execution
- - old executions are finished if time is exceeded
- - IDEAL DJANGO approach: runs periodically, state is not kept, appvals effectively manages if it runs periodically or not
-3. ScheduleManager does not keep state, still uses django-apscheduler to manage job start/finish
- - timetable and queues don't need to be maintained -> scheduler functions can be properly serialized
- - get_available_timeslot would require refactoring -> executions could start immediately instead of on next step
- - step only used for recalculations -> could be removed if algorithm predicts interruptions? 
- - can the front-end run functions from scheduler directly?
+### Battery storage logic
 
+1. manage battery charging
+    * if solar panel energy available, charge during solar hours
+    * if no solar energy, charge whenever consumption < 30% during day (up to 50% of available energy)
+
+
+2. manage battery consumption
+- on peak-shaving:
+    * schedule whenever consumption > 70%
+- on load balancing:
+    * schedule whenever consumption > 70% (down to 50%)
+- on time-band:
+    * during high hours, schedule whenever consumption > power output during high hours
+    * during average hours, schedule whenever consumption > 80%
+
+How to manage charge status?
+Battery can't discharge and charge at the same time.
+Battery may not be fully discharged over day.
+ - use last full charge-discharge data to calculate energy needed in next recharge
+ - schedule charge every midnight / when energy is depleted?
+ - can't schedule discharges if charge is underway/incomplete
+
+---
 
 ## Technical Documentation
 
+<!-- 
 ### Object classes
 
 ### SchedulerManager
 
-The SchedulerManager receives requests from appliances that need to be executed or stopped, acting as a local server.  It is primarily responsible for managing execution lifecycles. To do so, it needs to keep track of the available energy resources across the next hours, accounting for the energy to be consumed by running or pending (scheduled) executions until their expected end.
+The SchedulerManager receives requests from appliances that need to be executed or stopped, acting as a local server. It is primarily responsible for managing execution lifecycles. To do so, it needs to keep track of the available energy resources across the next hours, accounting for the energy to be consumed by running or pending (scheduled) executions until their expected end.
 
 Each execution has a priority ranging from 1 to 10, where 10 is the highest priority and 1 is the lowest. This priority is calculated when the start request is processed, based on the priority class and maximum delay parameters defined by the user, and updated periodically.
-
 
 
 #### Start request handling logic
 
 When a start request arrives, the script checks if there is enough available power to run the appliance immediately. This option is preferred in situations of low energy demand, 
 
-> Setting: don't start immediately if execution is not interruptible? or don't start immediately if power is above xx% of limit?
+> Setting: don't start immediately if execution is not interruptible? or don't start immediately if power is above xx% of limit? -->
 
-#### Energy tracking
-##### Time table
-##### Timeslot definition
+### Appliance categorization
+An effective HEMS solution depends on accurate parametrization of appliance behaviour and time sensitiveness. Appliances can be primarily categorized regarding their ability to interrupt and resume their work. Some appliances can stop and resume with little to no loss of progress, such as recent models of washing machines or HVAC. These machines either keep track of their current progress, or perform a single task with continuous output, where an interruption at opportune times is considered acceptable by the user. Appliances within this category are classified as interruptible. On the other hand, appliances that are unable to resume their progress on restart, require a significant amount of energy to go back to the state before shutdown, or simply require continuous execution to achieve a goal, are considered non-interruptible. Examples are the oven, coffee machine, or even the television during an important segment.
 
-#### Application lifecycle
+[Priority categorization]
 
-### Priority calculation
-#### Update rules
+
+In previous iterations of the proposed solution, there was additional separation between schedulable and non-schedulable appliances, regarding their compatibility with a scheduling solution at all. For example, a fridge requires constant execution and regulates its own cooling efficiently. Users typically don't unplug a fridge, at the risk of spoiling food inside. However, a fridge can simply be classified as a non-interruptible appliance with maximum priority and unlimited duration of usage.
+
+### Scheduling strategy
+
+In this paper, a challenging scheduling problem arose from the context of energy management. Scheduling solutions are frequently designed for a "one-job-to-one-processor" pattern, where only one job can be executed at a time. The pattern assumes every job uses the same amount of resources at any point during their execution, corresponding to the exact capacity of the processor, so the only constraint is time.
+
+Other jobs waiting for execution are organized in a queue. The arrival time of said jobs can be fixed or variable. If the arrival time is fixed, all jobs are known during the scheduling and can be sorted immediately, by execution time or external factors described by a discretized priority function. But with a variable rate of arrival, a job i that would be scheduled before job j in a fixed arrival setting may arrive later, and not be able to get processed immediately. Logically, the priority of job i is higher than of job j, thus it should complete before all jobs j in queue. It must be decided if the queue behavior is head-of-the-line, where the current job is not interrupted but job i is placed ahead of all lower-priority jobs, or preemptive, where the current job is interrupted to execute the higher-priority job j. Within the preemptive queue model, job i may need to be started from the beginning (preemptive restart) or keep its progress (preemptive resume). The queue behavior depends on the context of the problem and the constraints of the jobs.
+
+Algorithms are developed to optimize a certain function, an objective measure of the scheduling performance. The most common goal is minimization of makespan - the total time required to execute all jobs. Once again, it is adequate for systems only constrained by processing time. Other criteria include lateness, earliness and tardiness, measurements that relate the deadline and completion time of each job. Throughput and fairness are useful metrics in scheduling systems with homogeneous jobs. 
+
+However, in a house or building, multiple appliances can run simultaneously and independently, there being no restriction on the number of jobs. Executions are heterogeneous in running times and energy consumption, varying according to the energy profile and typical duration of usage of each application. Users can activate appliances at any time and stop them manually, earlier than predicted. [What else?]
+
+[Reapproach paragraph above with scheduling-specific terms]
+
+[Stochastic scheduling?]
+[Utility Function]
+
+#### Appliance lifecycle
+
+#### Utility function
+<!-- Use deterministic priorities to avoid appliances cycling between on and off? -->
+
+### Solar energy representation
+[PVWatts]
+[hourly averages for each month, calculated for location coordinates based on European data]
+
+### Multi-house mode
+[Recommendations]
 
 ### Interprocess communication
  - ZeroMQ (pyzmq)
 
+### Future work
+<!-- Use real power, measured or reported by appliances, or a more accurate estimate based on the consumption profile across time -->
+<!-- Integrate proximity to desired temperature as a criteria for HVAC appliance priority decision -->
 
-> Users may decide to terminate the execution of an appliance before the time assumed by the script. 
+---
 
-> Keeping track of available energy resources, managing execution lifecycles and updating relative priorities.
+### Useful links / papers
 
+[1] H. Li, C. Zang, P. Zeng, H. Yu, Z. Li and N. Fenglian, "Optimal home energy management integrating random PV and appliances based on stochastic programming," 2016 Chinese Control and Decision Conference (CCDC), 2016, pp. 429-434, doi: 10.1109/CCDC.2016.7531023.
