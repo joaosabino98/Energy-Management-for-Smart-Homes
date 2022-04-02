@@ -1,22 +1,21 @@
 import os
 import django
 import processor.core as core
-from scheduler.models import Home, BatteryStorageSystem, Execution, NoBSSystemException, NoPVSystemException, PhotovoltaicSystem, ProductionData, Profile
+from scheduler.models import Home, Execution, NoBSSystemException, NoPVSystemException, ProductionData
 from django.utils import timezone
 from math import floor
 
-from scheduler.settings import INTERRUPTIBLE, LOAD_DISTRIBUTION, LOW_PRIORITY, NONINTERRUPTIBLE, PEAK_SHAVING
+from scheduler.settings import INTERRUPTIBLE, LOW_PRIORITY, NONINTERRUPTIBLE
+from processor.tools import compact_periods, power_to_energy, energy_to_power
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 django.setup()
 
+# battery executions are accounted for in consumption
 def get_power_available_within(start_time, end_time):
     home = Home.objects.get(pk=core.home_id)
     threshold = home.consumption_threshold
-    battery_discharge = get_minimum_battery_power_discharge_within(start_time, end_time)
     production = get_minimum_production_within(start_time, end_time)
-    if battery_discharge is not None:
-        threshold += battery_discharge
     if production is not None:
         threshold += production
     return threshold
@@ -365,22 +364,19 @@ def get_low_consumption_solar_day_periods(start_time, threshold_multiplier):
     return day_periods
 
 def get_day_reference_times(current_time):
-    # start_time = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
     start_time = current_time
     end_time = start_time + timezone.timedelta(days=1)
     consumption_reference_times = core.get_consumption_reference_times_within(start_time, end_time)
-    reference_times = sorted(list(dict.fromkeys(consumption_reference_times + [current_time])))
-    return reference_times
+    return consumption_reference_times
 
 def get_power_production(time):
     home = Home.objects.get(pk=core.home_id)
-    if not hasattr(home, "photovoltaicsystem"):
-        raise NoPVSystemException()
-    pv = home.photovoltaicsystem
     power = 0
-    queryset = ProductionData.objects.filter(system=pv, month=time.month, hour=time.hour)
-    for production in queryset:
-        power += production.average_power_generated
+    if hasattr(home, "photovoltaicsystem"):
+        pv = home.photovoltaicsystem
+        queryset = ProductionData.objects.filter(system=pv, month=time.month, hour=time.hour)
+        for production in queryset:
+            power += production.average_power_generated
     return power
 
 def get_minimum_production_within(start_time, end_time):
@@ -394,26 +390,3 @@ def get_minimum_production_within(start_time, end_time):
                 minimum_production = power_production
             time += timezone.timedelta(hours=1)
     return minimum_production
-
-def compact_periods(day_periods):
-    new_periods = {}
-    if day_periods:
-        block_start_time = next(iter(day_periods))[0]
-        block_end_time = next(iter(day_periods))[1]
-        block_energy = day_periods[next(iter(day_periods))]
-        for period in day_periods:
-            if day_periods[period] == block_energy:
-                block_end_time = period[1]
-            else:
-                new_periods[(block_start_time, block_end_time)] = block_energy
-                block_start_time = period[0]
-                block_end_time = period[1]
-                block_energy = day_periods[period]
-        new_periods[(block_start_time, block_end_time)] = block_energy
-    return new_periods
-
-def power_to_energy(start_time, end_time, power):
-    return floor(power * (end_time - start_time).seconds/3600)
-
-def energy_to_power(start_time, end_time, energy):
-    return floor(energy / ((end_time - start_time).seconds/3600)) if (end_time - start_time).seconds != 0 else 0

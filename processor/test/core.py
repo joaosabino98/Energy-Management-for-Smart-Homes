@@ -85,5 +85,8 @@ def anticipate_pending_executions():
 def anticipate_high_priority_executions():
     return core.anticipate_high_priority_executions(debug=True)
 
+def start_aggregator_client(accept_recommendations):
+    return core.start_aggregator_client(accept_recommendations)
+
 def set_id(id):
     return core.set_id(id)

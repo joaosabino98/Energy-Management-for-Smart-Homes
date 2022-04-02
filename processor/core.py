@@ -3,11 +3,12 @@ import django
 from math import floor
 from django.utils import timezone
 from apscheduler.triggers.cron import CronTrigger
-import processor.apsched as aps
+import processor.background as aps
 import processor.external_energy as ext
-import processor.aggregator_client as cli
+import processor.aggregator.client as cli
 
-from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOAD_DISTRIBUTION, LOW_PRIORITY, NORMAL, PEAK_SHAVING, TIME_BAND
+from home.settings import INF_DATE
+from scheduler.settings import IMMEDIATE, INTERRUPTIBLE, LOAD_DISTRIBUTION, LOW_PRIORITY, NORMAL, PEAK_SHAVING, TIME_BAND
 from scheduler.models import Home, Execution
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
@@ -39,6 +40,11 @@ def anticipate_high_priority_executions_job():
 
 def schedule_battery_charge_job():
 	ext.schedule_battery_charge()
+
+def update_aggregator_consumption_data_job():
+	home = Home.objects.get(pk=home_id)
+	if cli.started:
+		cli.send_update_schedule(home_id)
 
 def change_threshold(threshold):
 	home = Home.objects.get(pk=home_id)
@@ -119,20 +125,21 @@ def choose_execution_time(execution, available_periods):
 	if available_periods:
 		home = Home.objects.get(pk=home_id)
 		strategy = home.strategy
-		if home.accept_recommendations:
-			start_time = cli.send_choice_request(available_periods, execution.rated_power)
+		priority = execution.profile.priority
+		if strategy is PEAK_SHAVING or priority is IMMEDIATE:
+			earliest_start_time = next(iter(available_periods))[0]
+			return earliest_start_time
+		elif home.accept_recommendations:
+			chosen_index = int(cli.send_choice_request(available_periods))
+			start_time = list(available_periods.keys())[chosen_index][0]
 			return start_time
+		elif strategy is LOAD_DISTRIBUTION:
+			sorted_periods = {k: v for k, v in sorted(available_periods.items(), key=lambda item: item[1])}
+			for period in sorted_periods:
+				if period[0] - execution.request_time < maximum_delay:
+					return period[0]
 		else:
-			if strategy is PEAK_SHAVING:
-				earliest_start_time = next(iter(available_periods))[0]
-				return earliest_start_time
-			elif strategy is LOAD_DISTRIBUTION:
-				sorted_periods = {k: v for k, v in sorted(available_periods.items(), key=lambda item: item[1])}
-				for period in sorted_periods:
-					if period[0] - execution.request_time < maximum_delay:
-						return period[0]
-			else:
-				pass
+			pass
 
 def get_available_execution_times(execution, minimum_start_time=timezone.now(), duration=None):
 	available_periods = {}
@@ -172,7 +179,7 @@ def get_consumption_reference_times_within(start_time, end_time, queryset=None):
 			time_list.append(execution.start_time)
 		if execution.end_time is not None and (end_time is None or execution.end_time < end_time):
 				time_list.append(execution.end_time)
-	time_list.sort()
+	time_list = sorted(list(dict.fromkeys(time_list)))
 	return time_list
 
 def start_execution(execution, start_time=None, debug=False):
@@ -218,31 +225,48 @@ def schedule_execution(execution, debug=False):
 
 	if strategy is PEAK_SHAVING:
 		if chosen_time == now:
-			print("Enough available power.")
+			print("[1] Enough available power.")
 			start_execution(execution, None, debug)
 			check_high_demand(now, calculate_execution_end_time(execution, now), now, debug)
+			cli.send_update_schedule(home_id)
 			return 1
 		elif ext.is_battery_discharge_available(execution, now):
-			print("Activating battery storage system.")
+			print("[2] Activating Battery Storage System.")
 			ext.schedule_battery_discharge_on_consumption_above_threshold(execution, now, now, debug)
 			start_execution(execution, None, debug)
-			return 1
+			cli.send_update_schedule(home_id)
+			return 2
+		elif shift_executions(execution, now, debug):
+			print("[3] Shifting lower-priority executions.")
+			ext.schedule_battery_discharge_on_high_demand(now, debug)
+			cli.send_update_schedule(home_id)
+			return 3
+		elif chosen_time is not None and chosen_time != INF_DATE:
+			print("[4] Scheduling for later.")
+			start_execution(execution, chosen_time, debug)
+			check_high_demand(chosen_time, calculate_execution_end_time(execution, chosen_time), now, debug)
+			cli.send_update_schedule(home_id)
+			return 4
 		else:
-			print("Unable to activate immediately. Attempting to shift lower priority running executions...")
-			success = shift_executions(execution, now, debug)
-			if success:
-				ext.schedule_battery_discharge_on_high_demand(now, debug)
-				return 2
-			else:
-				print("Unable to shift running executions.")
-				if chosen_time is not None and chosen_time != INF_DATE:
-					start_execution(execution, chosen_time, debug)
-					check_high_demand(chosen_time, calculate_execution_end_time(execution, chosen_time), now, debug)
-					return 3
-				else:
-					print("Unable to schedule execution within acceptable delay. Consider raising threshold or stopping appliances.")
-					ext.schedule_battery_discharge_on_high_demand(now, debug)
-					return 4
+			print("[5] Unable to schedule appliance. Consider raising power threshold or increasing maximum delay.")
+			ext.schedule_battery_discharge_on_high_demand(now, debug)
+			return 5
+	elif strategy is LOAD_DISTRIBUTION:
+		if chosen_time is not None and chosen_time != INF_DATE:
+			print("[1] Enough available power.")
+			start_execution(execution, chosen_time, debug)
+			check_high_demand(chosen_time, calculate_execution_end_time(execution, chosen_time), now, debug)
+			cli.send_update_schedule(home_id)
+			return 1
+		elif shift_executions(execution, now, debug):
+			print("[3] Shifting lower-priority executions.")
+			ext.schedule_battery_discharge_on_high_demand(now, debug)
+			cli.send_update_schedule(home_id)
+			return 3
+		else:
+			print("[5] Unable to schedule appliance. Consider raising power threshold or increasing maximum delay.")
+			ext.schedule_battery_discharge_on_high_demand(now, debug)
+			return 5
 
 def schedule_later(execution, debug=False):
 	now = timezone.now()
@@ -342,11 +366,11 @@ def anticipate_high_priority_executions(debug=False):
 			if not success:
 				print("Unable to anticipate execution.")
 
-#TODO: send power consumption times
-def start_accepting_reccomendations():
+def start_aggregator_client(accept_recommendations):
 	home = Home.objects.get(pk=home_id)
-	home.set_accept_recommendations(True)
+	home.set_accept_recommendations(accept_recommendations)
 	cli.start()
+	cli.send_update_schedule(home_id)
 
 def start():
 	home = Home.objects.get(pk=home_id)
@@ -369,7 +393,6 @@ def start():
 def set_id(id):
 	global home_id
 	home_id = id
-
 
 step = 15
 bgsched = aps.scheduler

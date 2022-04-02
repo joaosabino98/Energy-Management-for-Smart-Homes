@@ -1,5 +1,6 @@
 from django.db import models, transaction
-from .settings import INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
+from home.settings import INF_DATE
+from .settings import PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
 from django.utils import timezone
 from math import floor
 from django.db.models.signals import post_save
@@ -210,4 +211,7 @@ class NoBSSystemException(Exception):
     pass
 
 class NoPVSystemException(Exception):
+    pass
+
+class NoAggregatorException(Exception):
     pass

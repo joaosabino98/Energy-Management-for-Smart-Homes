@@ -93,12 +93,3 @@ def get_power_production(time):
 
 def get_minimum_production_within(start_time, end_time):
     return ext.get_minimum_production_within(start_time, end_time)
-
-def compact_periods(day_periods):
-    return ext.compact_periods(day_periods)
-
-def power_to_energy(start_time, end_time, power):
-    return ext.power_to_energy(start_time, end_time, power)
-
-def energy_to_power(start_time, end_time, energy):
-    return ext.energy_to_power(start_time, end_time, energy)

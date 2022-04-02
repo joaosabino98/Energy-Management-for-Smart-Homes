@@ -1,9 +1,9 @@
 from django.test import TestCase, tag
-
-from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, NONINTERRUPTIBLE, NORMAL, PEAK_SHAVING
+from home.settings import INF_DATE
+from scheduler.settings import IMMEDIATE, INTERRUPTIBLE, LOW_PRIORITY, NONINTERRUPTIBLE, NORMAL, PEAK_SHAVING
 from .models import Home, BatteryStorageSystem, Execution, Appliance, PhotovoltaicSystem, ProductionData, Profile
-import processor.test_core as core
-import processor.test_external_energy as ext
+import processor.test.core as core
+import processor.test.external_energy as ext
 from django.utils import timezone
 import time
 
@@ -113,14 +113,14 @@ class LifecycleTestCase(TestCase):
     def test_execution_simple_scheduling(self):
         e = Execution.objects.create(home=self.h1, appliance=Appliance.objects.first(),profile=Profile.objects.first())
         status = self.scheduler.schedule_execution(e)
-        e = Execution.objects.get(pk=1)
+        e.refresh_from_db()
         self.assertEqual(status, 1)
         self.assertEqual(e.status(), "Started")
 
     def test_infinite_execution_simple_scheduling(self):
         e = Execution.objects.create(home=self.h1, appliance=Appliance.objects.last(),profile=Profile.objects.last())
         status = self.scheduler.schedule_execution(e)
-        e = Execution.objects.get(pk=1)
+        e.refresh_from_db()
         self.assertEqual(status, 1)
         self.assertEqual(e.status(), "Started")
         self.assertEqual(e.end_time, INF_DATE)
@@ -134,10 +134,10 @@ class LifecycleTestCase(TestCase):
         status2 = self.scheduler.schedule_execution(e2)
         status3 = self.scheduler.schedule_execution(e3)
         status4 = self.scheduler.schedule_execution(e4)  
-        e1 = Execution.objects.get(pk=1)
-        e2 = Execution.objects.get(pk=2)
-        e3 = Execution.objects.get(pk=3)       
-        e4 = Execution.objects.get(pk=4)
+        e1.refresh_from_db()
+        e2.refresh_from_db()
+        e3.refresh_from_db()      
+        e4.refresh_from_db()
         self.assertEqual(status1, 1)
         self.assertEqual(status2, 1)
         self.assertEqual(status3, 1)
@@ -153,7 +153,7 @@ class LifecycleTestCase(TestCase):
         self.scheduler.schedule_execution(e1)
         time.sleep(2)
         self.scheduler.finish_execution(e1)
-        e1 = Execution.objects.get(pk=1)
+        e1.refresh_from_db()
         e1_time = e1.end_time - e1.start_time 
         self.assertEqual(e1.status(), "Finished")
         self.assertEqual(e1_time.seconds, 2)        
@@ -164,7 +164,7 @@ class LifecycleTestCase(TestCase):
         self.scheduler.schedule_execution(e1)
         time.sleep(2)
         self.scheduler.interrupt_execution(e1)
-        e1 = Execution.objects.get(pk=1)
+        e1.refresh_from_db()
         e1_time = e1.end_time - e1.start_time 
         self.assertEqual(e1.status(), "Interrupted")
         self.assertEqual(e1_time.seconds, 2)        
@@ -206,7 +206,7 @@ class FullSchedulingTestCase(TestCase):
         e1 = Execution.objects.get(pk=1)
         e5 = Execution.objects.get(pk=5)
         e6 = Execution.objects.get(pk=6)
-        self.assertEqual(status5, 2)  
+        self.assertEqual(status5, 3)  
         self.assertEqual(e1.status(), "Interrupted")
         self.assertEqual(e5.status(), "Started")
         self.assertEqual(e6.status(), "Pending")
@@ -221,7 +221,7 @@ class FullSchedulingTestCase(TestCase):
         status5 = self.scheduler.schedule_execution(e5)
         e1 = Execution.objects.get(pk=1)
         e5 = Execution.objects.get(pk=5)
-        self.assertEqual(status5, 3)  
+        self.assertEqual(status5, 4)  
         self.assertEqual(e1.status(), "Started")
         self.assertEqual(e5.status(), "Pending")
         self.assertGreaterEqual(e5.start_time, e1.end_time)
@@ -231,7 +231,7 @@ class FullSchedulingTestCase(TestCase):
         status5 = self.scheduler.schedule_execution(e5)
         e1 = Execution.objects.get(pk=1)
         e5 = Execution.objects.get(pk=5)
-        self.assertEqual(status5, 4)  
+        self.assertEqual(status5, 5)  
         self.assertEqual(e1.status(), "Started")
         self.assertEqual(e5.status(), "Pending")
 
@@ -299,7 +299,7 @@ class ComplexSchedulingTestCase(TestCase):
         self.assertEqual(status2, 1)
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=3))
         status3 = self.scheduler.schedule_execution(e3)
-        self.assertEqual(status3, 3)
+        self.assertEqual(status3, 4)
   
     def test_shift_executions(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
@@ -312,9 +312,9 @@ class ComplexSchedulingTestCase(TestCase):
         self.scheduler.schedule_execution(e4)
         e5 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=3))
         status5 = self.scheduler.schedule_execution(e5)
-        self.assertEqual(status5, 2)
-        e4 = Execution.objects.get(pk=4)
-        e5 = Execution.objects.get(pk=5)
+        self.assertEqual(status5, 3)
+        e4.refresh_from_db()
+        e5.refresh_from_db()
         e6 = Execution.objects.get(pk=6)
         self.assertEqual(e4.status(), "Interrupted")
         self.assertEqual(e5.status(), "Started")
@@ -331,7 +331,7 @@ class ComplexSchedulingTestCase(TestCase):
         self.scheduler.schedule_execution(e4)
         e5 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=4),profile=Profile.objects.get(pk=4))
         status5 = self.scheduler.schedule_execution(e5)
-        self.assertEqual(status5, 3)
+        self.assertEqual(status5, 4)
         self.assertEqual(e5.status(), "Pending")
 
     def test_infinite_execution_schedule_later(self):
@@ -341,7 +341,7 @@ class ComplexSchedulingTestCase(TestCase):
         self.scheduler.schedule_execution(e2)
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=5),profile=Profile.objects.get(pk=5))
         status3 = self.scheduler.schedule_execution(e3)
-        self.assertEqual(status3, 3)
+        self.assertEqual(status3, 4)
 
     def test_infinite_execution_shift_non_interruptible_executions(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=4),profile=Profile.objects.get(pk=4))
@@ -350,14 +350,14 @@ class ComplexSchedulingTestCase(TestCase):
         self.scheduler.schedule_execution(e2)
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=5),profile=Profile.objects.get(pk=5))
         status3 = self.scheduler.schedule_execution(e3)
-        self.assertEqual(status3, 4)
+        self.assertEqual(status3, 5)
 
     def test_schedule_after_infinite_execution(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=5),profile=Profile.objects.get(pk=5))
         self.scheduler.schedule_execution(e1)
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=5),profile=Profile.objects.get(pk=5))
         status2 = self.scheduler.schedule_execution(e2)
-        self.assertEqual(status2, 4)
+        self.assertEqual(status2, 5)
 
     def test_anticipate_pending_executions(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
@@ -375,12 +375,12 @@ class ComplexSchedulingTestCase(TestCase):
         self.scheduler.schedule_execution(e6)
         self.scheduler.schedule_execution(e7)
         self.scheduler.finish_execution(e1)
-        e1 = Execution.objects.get(pk=1)
-        e3 = Execution.objects.get(pk=3)
-        e4 = Execution.objects.get(pk=4)
-        e5 = Execution.objects.get(pk=5)
-        e6 = Execution.objects.get(pk=6)
-        e7 = Execution.objects.get(pk=7)
+        e1.refresh_from_db()
+        e3.refresh_from_db()
+        e4.refresh_from_db()
+        e5.refresh_from_db()
+        e6.refresh_from_db()
+        e7.refresh_from_db()
         self.assertEqual(e1.status(), "Finished")
         self.assertEqual(e3.status(), "Started")
         self.assertEqual(e4.status(), "Started")
@@ -418,8 +418,8 @@ class BSSystemTestCase(TestCase):
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=2), profile=Profile.objects.get(pk=3))
         self.scheduler.schedule_execution(e1)
         self.scheduler.schedule_execution(e2)
-        e1 = Execution.objects.get(pk=1)
-        e2 = Execution.objects.get(pk=2)
+        e1.refresh_from_db()
+        e2.refresh_from_db()
         e3 = ext.get_last_battery_execution()
         self.assertNotEqual(e3, Execution.objects.none())
         self.assertEqual(e3.profile.name, "BSS 2600W Discharge")
@@ -456,7 +456,6 @@ class BSSystemTestCase(TestCase):
         self.assertGreaterEqual(ext.get_battery_energy(ext.get_last_battery_execution().end_time), battery.total_energy_capacity * 0.99)
 
     def test_schedule_battery_charge_before_discharge(self):
-        battery = self.h1.batterystoragesystem
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1), profile=Profile.objects.get(pk=1))
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=2), profile=Profile.objects.get(pk=3))
         self.scheduler.schedule_execution(e1)
@@ -512,3 +511,34 @@ class PVSystemTestCase(TestCase):
 
 class ComplexBSSystemTestCase(TestCase):
     pass     
+
+@tag('aggregator')
+class MultihouseSystemTestCase(TestCase):
+    def setUp(self):
+        self.h1 = Home.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
+        self.p1 = Profile.objects.create(name="Test 1", schedulability=INTERRUPTIBLE, priority=IMMEDIATE, rated_power=2000)
+        self.a1 = Appliance.objects.create(home=self.h1, name="Test 1", maximum_duration_of_usage=timezone.timedelta(seconds=3))
+        self.a1.profiles.set([self.p1])
+        self.scheduler = core
+        core.set_id(1)
+
+    def test_connect_to_aggregator_with_recommendations(self):
+        self.scheduler.start_aggregator_client(True)
+
+    def test_connect_to_aggregator_without_recommendations(self):
+        self.scheduler.start_aggregator_client(False)
+
+    def test_choose_on_empty_data(self):
+        self.scheduler.start_aggregator_client(True)
+        e = Execution.objects.create(home=self.h1, appliance=self.a1, profile=self.p1)
+        status = self.scheduler.schedule_execution(e)
+        e.refresh_from_db()
+        self.assertEqual(status, 1)
+        self.assertEqual(e.status(), "Started")
+
+    # Test manually: aggregator is not using test database
+    def test_choose_on_single_house_data(self):
+        pass
+
+    def test_choose_on_multiple_house_data(self):
+        pass
