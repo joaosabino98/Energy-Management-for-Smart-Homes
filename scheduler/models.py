@@ -1,6 +1,6 @@
 from django.db import models, transaction
 from home.settings import INF_DATE
-from .settings import PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
+from .settings import PEAK_SHAVING, PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
 from django.utils import timezone
 from math import floor
 from django.db.models.signals import post_save
@@ -11,7 +11,7 @@ from django.dispatch import receiver
 class Home(models.Model):
     consumption_threshold = models.IntegerField(help_text="Consumption threshold (W)")
     accept_recommendations = models.BooleanField(default=False)
-    strategy = models.IntegerField(choices=STRATEGY_OPTIONS)
+    strategy = models.IntegerField(choices=STRATEGY_OPTIONS, default=PEAK_SHAVING)
     is_running = models.BooleanField()
 
     def set_consumption_threshold(self, new_val):
@@ -53,7 +53,7 @@ class Profile(models.Model):
     priority = models.IntegerField(
         choices=PRIORITY_OPTIONS
     )
-    maximum_delay = models.DurationField(default=timezone.timedelta(seconds=3600), null=True)
+    maximum_duration_of_usage = models.DurationField(null=True)
     rated_power = models.IntegerField(help_text="Rated power (W)")
     hidden = models.BooleanField(default=False)
 
@@ -70,7 +70,7 @@ class Appliance(models.Model):
     home = models.ForeignKey(Home, on_delete=models.CASCADE)
     name = models.CharField(max_length=100, unique=True)
     profiles = models.ManyToManyField(Profile)
-    maximum_duration_of_usage = models.DurationField(null=True)
+    maximum_delay = models.DurationField(default=timezone.timedelta(seconds=3600), null=True)
 
     def __str__(self):
         return self.name
@@ -102,8 +102,8 @@ class Execution(models.Model):
         with transaction.atomic():
             self.start_time = timezone.now()
             if self.end_time is None:
-                if self.appliance.maximum_duration_of_usage is not None:
-                    self.end_time = self.start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
+                if self.profile.maximum_duration_of_usage is not None:
+                    self.end_time = self.start_time + self.profile.maximum_duration_of_usage - self.previous_progress_time
                 else:
                     self.end_time = INF_DATE
             self.is_started = True
@@ -135,8 +135,8 @@ class Execution(models.Model):
         with transaction.atomic():
             self.start_time = start_time
             if self.end_time is None:
-                if self.appliance.maximum_duration_of_usage is not None:
-                    self.end_time = self.start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
+                if self.profile.maximum_duration_of_usage is not None:
+                    self.end_time = self.start_time + self.profile.maximum_duration_of_usage - self.previous_progress_time
                 else:
                     self.end_time = INF_DATE
             self.save()
@@ -184,12 +184,11 @@ class BatteryStorageSystem(models.Model):
 @receiver(post_save, sender=BatteryStorageSystem, dispatch_uid="create_bss_appliance")
 def create_bss_appliance(sender, instance, created, **kwargs):
     if created:
-        charge_time = timezone.timedelta(seconds=floor(instance.total_energy_capacity / instance.continuous_power * 3600))
         instance.appliance, _ = Appliance.objects.get_or_create(
                     home=instance.home,
                     name="Battery Storage System",
                     defaults={
-                        "maximum_duration_of_usage": charge_time
+                        "maximum_delay": None
                     }
                 )
         instance.save()

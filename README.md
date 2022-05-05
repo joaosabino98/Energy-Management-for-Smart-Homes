@@ -55,7 +55,7 @@ import time
 core.set_id(1)
 core.start()
 home = Home.objects.get(pk=1)
-e = Execution.objects.create(home=home, appliance=Appliance.objects.get(pk=13),profile=Profile.objects.get(pk=13))
+e = Execution.objects.create(home=home, appliance=Appliance.objects.get(pk=10),profile=Profile.objects.get(pk=30))
 core.schedule_execution(e)
 time.sleep(6)
 e = Execution.objects.get(pk=e.id)

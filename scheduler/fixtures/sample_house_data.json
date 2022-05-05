@@ -16,7 +16,7 @@
          "home": 1,
          "name":"Television (Living Room)",
          "profiles":[20],
-         "maximum_duration_of_usage":"08:00:00"
+         "maximum_delay":"00:10:00"
       }
    },
    {
@@ -26,7 +26,7 @@
          "home": 1,
          "name":"Microwave",
          "profiles":[1,2,3],
-         "maximum_duration_of_usage":"00:20:00"
+         "maximum_delay":"00:05:00"
       }
    },
    {
@@ -36,7 +36,7 @@
          "home": 1,
          "name":"Oven",
          "profiles":[4],
-         "maximum_duration_of_usage":"01:00:00"
+         "maximum_delay":"00:10:00"
       }
    },
    {
@@ -46,7 +46,7 @@
          "home": 1,
          "name":"Heater (Bedroom)",
          "profiles":[17],
-         "maximum_duration_of_usage":"01:30:00"
+         "maximum_delay":"00:15:00"
       }
    },
    {
@@ -56,7 +56,7 @@
          "home": 1,
          "name":"Water Heater",
          "profiles":[19],
-         "maximum_duration_of_usage":"03:00:00"
+         "maximum_delay":"01:00:00"
       }
    },
    {
@@ -66,7 +66,7 @@
          "home": 1,
          "name":"Washing Machine",
          "profiles":[10,11],
-         "maximum_duration_of_usage":"01:00:00"
+         "maximum_delay":"12:00:00"
       }
    },
    {
@@ -76,7 +76,7 @@
          "home": 1,
          "name":"Dishwasher",
          "profiles":[7,8,9],
-         "maximum_duration_of_usage":"01:00:00"
+         "maximum_delay":"12:00:00"
       }
    },
    {
@@ -86,7 +86,7 @@
          "home": 1,
          "name":"Air Conditioner",
          "profiles":[5],
-         "maximum_duration_of_usage":"04:00:00"
+         "maximum_delay":"01:00:00"
       }
    },
    {
@@ -95,7 +95,8 @@
       "fields":{
          "home": 1,
          "name":"Fridge",
-         "profiles":[6]
+         "profiles":[6],
+         "maximum_delay":"00:00:00"
       }
    },
    {
@@ -105,7 +106,7 @@
          "home": 1,
          "name":"Coffee Machine",
          "profiles":[13],
-         "maximum_duration_of_usage":"00:15:00"
+         "maximum_delay":"00:05:00"
       }
    },
    {
@@ -115,7 +116,7 @@
          "home": 1,
          "name":"Vacuum Cleaner",
          "profiles":[12],
-         "maximum_duration_of_usage":"00:30:00"
+         "maximum_delay":"00:01:00"
       }
    },
    {
@@ -125,17 +126,7 @@
          "home": 1,
          "name":"Electric Vehicle",
          "profiles":[21],
-         "maximum_duration_of_usage":"08:00:00"
-      }
-   },
-   {
-      "model":"scheduler.appliance",
-      "pk":13,
-      "fields":{
-         "home": 1,
-         "name":"[DEBUG] 5 secs execution",
-         "profiles":[13],
-         "maximum_duration_of_usage":"00:00:05"
+         "maximum_delay":"04:00:00"
       }
    },
    {

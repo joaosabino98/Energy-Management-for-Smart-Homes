@@ -205,11 +205,12 @@ def create_battery_execution(start_time, end_time, power):
     if not hasattr(home, "batterystoragesystem"):
         raise NoBSSystemException()
     battery = home.batterystoragesystem
+    charge_time = timezone.timedelta(seconds=floor(battery.total_energy_capacity / power * 3600))
     profile, _ = battery.appliance.profiles.get_or_create(
             name=f"BSS {power}W Charge" if power > 0 else f"BSS {-power}W Discharge",
             defaults={
                 "schedulability": INTERRUPTIBLE if power > 0 else NONINTERRUPTIBLE,
-                "maximum_delay": None,
+                "maximum_duration_of_usage": charge_time,
                 "rated_power": power,
                 "priority": LOW_PRIORITY,
                 "hidden": True

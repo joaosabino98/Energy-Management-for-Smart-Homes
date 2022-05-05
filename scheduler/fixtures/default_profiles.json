@@ -6,7 +6,7 @@
             "name":"Microwave (100%)",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:02:00",
+            "maximum_duration_of_usage":"00:20:00",
             "rated_power":800
         }
     },
@@ -17,7 +17,7 @@
             "name":"Microwave (80%)",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:02:00",
+            "maximum_duration_of_usage":"00:30:00",
             "rated_power":640
         }
     },
@@ -28,7 +28,7 @@
             "name":"Microwave (Defrost)",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:02:00",
+            "maximum_duration_of_usage":"00:40:00",
             "rated_power":300
         }
     },
@@ -39,7 +39,7 @@
             "name":"Oven",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:02:00",
+            "maximum_duration_of_usage":"01:30:00",
             "rated_power":2500
         }
     },
@@ -50,7 +50,7 @@
             "name":"Air Conditioner",
             "schedulability":0,
             "priority":1,
-            "maximum_delay":"01:00:00",
+            "maximum_duration_of_usage":"04:00:00",
             "rated_power":2000
         }
     },
@@ -61,7 +61,6 @@
             "name":"Fridge",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:00:00",
             "rated_power":150
         }
     },
@@ -72,7 +71,7 @@
             "name":"Dishwasher (ECO)",
             "schedulability":1,
             "priority":2,
-            "maximum_delay":"12:00:00",
+            "maximum_duration_of_usage":"03:00:00",
             "rated_power":1200
         }
     },
@@ -83,7 +82,7 @@
             "name":"Dishwasher (Regular)",
             "schedulability":1,
             "priority":2,
-            "maximum_delay":"12:00:00",
+            "maximum_duration_of_usage":"01:50:00",
             "rated_power":1800
         }
     },
@@ -94,7 +93,7 @@
             "name":"Dishwasher (Intensive)",
             "schedulability":1,
             "priority":2,
-            "maximum_delay":"12:00:00",
+            "maximum_duration_of_usage":"03:00:00",
             "rated_power":2400
         }
     },
@@ -105,7 +104,7 @@
             "name":"Washing Machine (7kg, Hot)",
             "schedulability":1,
             "priority":2,
-            "maximum_delay":"12:00:00",
+            "maximum_duration_of_usage":"01:00:00",
             "rated_power":2000
         }
     },
@@ -116,7 +115,7 @@
             "name":"Washing Machine (7kg, Cold)",
             "schedulability":1,
             "priority":2,
-            "maximum_delay":"12:00:00",
+            "maximum_duration_of_usage":"01:00:00",
             "rated_power":500
         }
     },
@@ -127,7 +126,7 @@
             "name":"Vacuum Cleaner",
             "schedulability":1,
             "priority":1,
-            "maximum_delay":"00:01:00",
+            "maximum_duration_of_usage":"00:30:00",
             "rated_power":1500
         }
     },
@@ -138,7 +137,7 @@
             "name":"Coffee Machine",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:05:00",
+            "maximum_duration_of_usage":"00:15:00",
             "rated_power":800
         }
     },
@@ -149,7 +148,7 @@
             "name":"Induction Cooker Burner (Small)",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:02:00",
+            "maximum_duration_of_usage":"01:00:00",
             "rated_power":1500
         }
     },
@@ -160,7 +159,7 @@
             "name":"Induction Cooker Burner (Medium)",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:02:00",
+            "maximum_duration_of_usage":"01:00:00",
             "rated_power":2000
         }
     },
@@ -171,7 +170,7 @@
             "name":"Induction Cooker Burner (Large)",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:02:00",
+            "maximum_duration_of_usage":"00:40:00",
             "rated_power":2500
         }
     },
@@ -182,7 +181,7 @@
             "name":"Heater (Small)",
             "schedulability":0,
             "priority":1,
-            "maximum_delay":"00:10:00",
+            "maximum_duration_of_usage":"04:00:00",
             "rated_power":800
         }
     },
@@ -193,7 +192,7 @@
             "name":"Heater (Medium)",
             "schedulability":0,
             "priority":1,
-            "maximum_delay":"00:15:00",
+            "maximum_duration_of_usage":"01:00:00",
             "rated_power":1800
         }
     },
@@ -204,7 +203,7 @@
             "name":"Water Heater (Tank-Type, Small Storage)",
             "schedulability":0,
             "priority":1,
-            "maximum_delay":"01:00:00",
+            "maximum_duration_of_usage":"02:00:00",
             "rated_power":1500
         }
     },
@@ -215,7 +214,7 @@
             "name":"Television",
             "schedulability":0,
             "priority":1,
-            "maximum_delay":"00:10:00",
+            "maximum_duration_of_usage":"08:00:00",
             "rated_power":150
         }
     },
@@ -226,7 +225,7 @@
             "name":"EV Charger",
             "schedulability":1,
             "priority":2,
-            "maximum_delay":"04:00:00",
+            "maximum_duration_of_usage":"08:00:00",
             "rated_power":7400
         }
     },
@@ -237,7 +236,7 @@
             "name":"45W Charger",
             "schedulability":0,
             "priority":1,
-            "maximum_delay":"00:20:00",
+            "maximum_duration_of_usage":"02:00:00",
             "rated_power":45
         }
     },
@@ -248,7 +247,7 @@
             "name":"95W Charger",
             "schedulability":0,
             "priority":1,
-            "maximum_delay":"00:20:00",
+            "maximum_duration_of_usage":"02:00:00",
             "rated_power":95
         }
     },
@@ -259,7 +258,7 @@
             "name":"Hair Dryer (High)",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:01:00",
+            "maximum_duration_of_usage":"00:05:00",
             "rated_power":1875
         }
     },
@@ -270,7 +269,7 @@
             "name":"Hair Dryer (Medium)",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:01:00",
+            "maximum_duration_of_usage":"00:10:00",
             "rated_power":975
         }
     },
@@ -281,7 +280,7 @@
             "name":"Hair Dryer (Low)",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:01:00",
+            "maximum_duration_of_usage":"00:15:00",
             "rated_power":863
         }
     },
@@ -292,7 +291,7 @@
             "name":"Toaster",
             "schedulability":1,
             "priority":1,
-            "maximum_delay":"00:05:00",
+            "maximum_duration_of_usage":"00:10:00",
             "rated_power":1500
         }
     },
@@ -303,7 +302,7 @@
             "name":"Lightbulb 20W",
             "schedulability":1,
             "priority":0,
-            "maximum_delay":"00:00:10",
+            "maximum_duration_of_usage":"08:00:00",
             "rated_power":20
         }
     },
@@ -314,8 +313,18 @@
             "name":"Standby",
             "schedulability":0,
             "priority":2,
-            "maximum_delay":"00:00:00",
             "rated_power":4
+        }
+    },
+    {
+        "model":"scheduler.profile",
+        "pk":30,
+        "fields":{
+            "name":"[DEBUG] 5 second duration",
+            "schedulability":0,
+            "priority":0,
+            "maximum_duration_of_usage":"00:00:05",
+            "rated_power":0
         }
     }
 ]

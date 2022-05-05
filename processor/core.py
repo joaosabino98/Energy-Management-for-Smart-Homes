@@ -107,18 +107,18 @@ def get_maximum_consumption_within(start_time, end_time, queryset=None):
 	return peak_consumption
 
 def calculate_execution_end_time(execution, start_time, duration=None):
-	if execution.appliance.maximum_duration_of_usage is None and duration is None:
+	if execution.profile.maximum_duration_of_usage is None and duration is None:
 		end_time = INF_DATE
 	elif duration is not None:
 		remaining_execution_time = duration - execution.previous_progress_time
 		end_time = start_time + remaining_execution_time
 	else:
-		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
+		remaining_execution_time = execution.profile.maximum_duration_of_usage - execution.previous_progress_time
 		end_time = start_time + remaining_execution_time
 	return end_time
 
 def choose_execution_time(execution, available_periods):
-	maximum_delay = execution.profile.maximum_delay
+	maximum_delay = execution.appliance.maximum_delay
 	if maximum_delay is not None:
 		available_periods = dict(filter(lambda e: e[0][0] - execution.request_time < maximum_delay, available_periods.items()))
 	if available_periods:
@@ -320,7 +320,7 @@ def check_high_demand(start_time, end_time, current_time, debug=False):
 		ext.schedule_battery_discharge_on_high_demand(current_time, debug)
 
 def calculate_weighted_priority(execution, current_time):
-	maximum_delay = execution.profile.maximum_delay
+	maximum_delay = execution.appliance.maximum_delay
 	start_time = execution.start_time if execution.start_time is not None else current_time
 	waiting_time = start_time - execution.request_time + execution.previous_waiting_time
 
