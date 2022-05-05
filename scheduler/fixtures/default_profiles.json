@@ -229,5 +229,93 @@
             "maximum_delay":"04:00:00",
             "rated_power":7400
         }
+    },
+    {
+        "model":"scheduler.profile",
+        "pk":22,
+        "fields":{
+            "name":"45W Charger",
+            "schedulability":0,
+            "priority":1,
+            "maximum_delay":"00:20:00",
+            "rated_power":45
+        }
+    },
+    {
+        "model":"scheduler.profile",
+        "pk":23,
+        "fields":{
+            "name":"95W Charger",
+            "schedulability":0,
+            "priority":1,
+            "maximum_delay":"00:20:00",
+            "rated_power":95
+        }
+    },
+    {
+        "model":"scheduler.profile",
+        "pk":24,
+        "fields":{
+            "name":"Hair Dryer (High)",
+            "schedulability":1,
+            "priority":0,
+            "maximum_delay":"00:01:00",
+            "rated_power":1875
+        }
+    },
+    {
+        "model":"scheduler.profile",
+        "pk":25,
+        "fields":{
+            "name":"Hair Dryer (Medium)",
+            "schedulability":1,
+            "priority":0,
+            "maximum_delay":"00:01:00",
+            "rated_power":975
+        }
+    },
+    {
+        "model":"scheduler.profile",
+        "pk":26,
+        "fields":{
+            "name":"Hair Dryer (Low)",
+            "schedulability":1,
+            "priority":0,
+            "maximum_delay":"00:01:00",
+            "rated_power":863
+        }
+    },
+    {
+        "model":"scheduler.profile",
+        "pk":27,
+        "fields":{
+            "name":"Toaster",
+            "schedulability":1,
+            "priority":1,
+            "maximum_delay":"00:05:00",
+            "rated_power":1500
+        }
+    },
+    {
+        "model":"scheduler.profile",
+        "pk":28,
+        "fields":{
+            "name":"Lightbulb 20W",
+            "schedulability":1,
+            "priority":0,
+            "maximum_delay":"00:00:10",
+            "rated_power":20
+        }
+    },
+    {
+        "model":"scheduler.profile",
+        "pk":29,
+        "fields":{
+            "name":"Standby",
+            "schedulability":0,
+            "priority":2,
+            "maximum_delay":"00:00:00",
+            "rated_power":4
+        }
     }
 ]

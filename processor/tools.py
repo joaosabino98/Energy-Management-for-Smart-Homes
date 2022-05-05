@@ -1,4 +1,12 @@
 from math import floor
+from django.utils import timezone
+
+def is_now(date):
+    now = timezone.now()
+    difference = (date - now).total_seconds()
+    if abs(difference) < 1:
+        return True
+    return False
 
 def compact_periods(periods):
     new_periods = {}
@@ -16,6 +24,9 @@ def compact_periods(periods):
                 block_energy = periods[period]
         new_periods[(block_start_time, block_end_time)] = block_energy
     return new_periods
+
+def positive_power_difference(rated_power, target_power):
+	return rated_power - target_power if rated_power < target_power else float("inf")
 
 def power_to_energy(start_time, end_time, power):
     return floor(power * (end_time - start_time).seconds/3600)

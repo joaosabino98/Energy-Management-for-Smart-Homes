@@ -36,12 +36,12 @@ class PriorityTestCase(TestCase):
         e4 = Execution.objects.create(home=self.h1, request_time=rt4,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=1)) 
         e5 = Execution.objects.create(home=self.h1, request_time=rt5,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=1)) 
         e6 = Execution.objects.create(home=self.h1, request_time=rt6,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=1)) 
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e1), 1) # expected priority: 1
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e2), 2) # expected priority: 2
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e3), 3) # expected priority: 3
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e4), 5) # expected priority: 5
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e5), 6) # expected priority: 6
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e6), 8) # expected priority: 8
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e1, rt1), 1) # expected priority: 1
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e2, rt1), 2) # expected priority: 2
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e3, rt1), 3) # expected priority: 3
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e4, rt1), 5) # expected priority: 5
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e5, rt1), 6) # expected priority: 6
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e6, rt1), 8) # expected priority: 8
 
     def test_normal_priority_calculation(self):
         rt1 = timezone.now() # 1 hour remaining (maximum delay)
@@ -50,28 +50,28 @@ class PriorityTestCase(TestCase):
         e1 = Execution.objects.create(home=self.h1, request_time=rt1,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=2))
         e2 = Execution.objects.create(home=self.h1, request_time=rt2,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=2))
         e3 = Execution.objects.create(home=self.h1, request_time=rt3,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=2))       
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e1), 7) # expected priority: 7
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e2), 9) # expected priority: 9
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e3), 10) # expected priority: 10
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e1, rt1), 7) # expected priority: 7
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e2, rt1), 9) # expected priority: 9
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e3, rt1), 10) # expected priority: 10
 
     def test_immediate_priority_calculation(self):
         rt1 = timezone.now() # 15 minutes remaining (maximum delay)
         rt2 = timezone.now()-timezone.timedelta(seconds=600) # 5 minutes remaining
         rt3 = timezone.now()-timezone.timedelta(seconds=890) # 10 seconds remaining 
-        e1 = Execution.objects.create(home=self.h1, request_time=rt1,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=3))
-        e2 = Execution.objects.create(home=self.h1, request_time=rt2,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=3))
-        e3 = Execution.objects.create(home=self.h1, request_time=rt3,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=3))      
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e1), 10) # expected priority: 10
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e2), 10) # expected priority: 10
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e3), 10) # expected priority: 10
+        e1 = Execution.objects.create(home=self.h1,request_time=rt1,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=3))
+        e2 = Execution.objects.create(home=self.h1,request_time=rt2,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=3))
+        e3 = Execution.objects.create(home=self.h1,request_time=rt3,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=3))      
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e1, rt1), 10) # expected priority: 10
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e2, rt1), 10) # expected priority: 10
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e3, rt1), 10) # expected priority: 10
 
     def test_get_lower_priority_shiftable_executions(self):
         rt1 = timezone.now() # 1 hour remaining (maximum delay)
         rt2 = timezone.now()-timezone.timedelta(seconds=2700) # 15 minutes remaining
-        e1 = Execution.objects.create(home=self.h1, request_time=rt1,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=2))
-        e2 = Execution.objects.create(home=self.h1, request_time=rt2,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=2))
-        self.scheduler.schedule_execution(e1) # Interruptible, priority: 7
-        self.scheduler.schedule_execution(e2) # Interruptible, priority: 9
+        e1 = Execution.objects.create(home=self.h1,request_time=rt1,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=2))
+        e2 = Execution.objects.create(home=self.h1,request_time=rt2,appliance=Appliance.objects.first(),profile=Profile.objects.get(pk=2))
+        self.scheduler.schedule_execution(e1, rt1) # Interruptible, priority: 7
+        self.scheduler.schedule_execution(e2, rt1) # Interruptible, priority: 9
         self.assertEqual(len(self.scheduler.get_lower_priority_shiftable_executions_within(rt2, rt2 + timezone.timedelta(hours=3), 0, 4)), 0)
         self.assertEqual(len(self.scheduler.get_lower_priority_shiftable_executions_within(rt2, rt2 + timezone.timedelta(hours=3), 0, 7)), 0)
         self.assertEqual(len(self.scheduler.get_lower_priority_shiftable_executions_within(rt2, rt2 + timezone.timedelta(hours=3), 0, 9)), 1)
@@ -87,9 +87,9 @@ class PriorityTestCase(TestCase):
         self.scheduler.schedule_execution(e1)
         self.scheduler.schedule_execution(e2)
         self.scheduler.schedule_execution(e3)
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e1), 3) # expected priority: 3
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e2), 3) # expected priority: 3
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e3), 3) # expected priority: 3
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e1, rt1), 3) # expected priority: 3
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e2, rt1), 3) # expected priority: 3
+        self.assertEqual(self.scheduler.calculate_weighted_priority(e3, rt1), 3) # expected priority: 3
 
 """ Test execution lifecycle """
 class LifecycleTestCase(TestCase):

@@ -57,9 +57,11 @@ def send_choice_request(available_periods):
     print("Received reply: %s" % response)
     return response
 
-def send_update_schedule(home_id, current_time=timezone.now()):
+def send_update_schedule(home_id, request_time=None):
+    if request_time is None:
+        request_time = timezone.now()
     if started:
-        consumption_periods = get_consumption_periods(current_time)
+        consumption_periods = get_consumption_periods(request_time)
         formatted_periods = format_time_periods(consumption_periods, True)
         str = f"update {home_id} {json.dumps(formatted_periods)}".encode("utf-8")
         socket.send(str)

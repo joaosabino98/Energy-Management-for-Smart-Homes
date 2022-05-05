@@ -140,6 +140,11 @@ class Execution(models.Model):
                 else:
                     self.end_time = INF_DATE
             self.save()
+    
+    def set_request_time(self, request_time):
+        with transaction.atomic():
+            self.request_time = request_time
+            self.save()
 
     def status(self):
         if self.is_finished:
@@ -165,7 +170,7 @@ class Execution(models.Model):
 
 class BatteryStorageSystem(models.Model):
     home = models.OneToOneField(Home, on_delete=models.CASCADE)
-    appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE, null=True, blank=True)
+    appliance = models.OneToOneField(Appliance, on_delete=models.CASCADE, null=True, blank=True)
     total_energy_capacity = models.IntegerField(help_text="Total energy capacity (Wh)")
     continuous_power = models.IntegerField(help_text="Continuous charge/discharge power (W)")
     last_full_charge_time = models.DateTimeField(default=timezone.now)

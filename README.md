@@ -65,10 +65,85 @@ e.delete()
 
 ---
 
-## General To-do
+## Complex scenarios
+### Scenario 1: average consumption
+
+User wakes up at 7:00 AM, takes a warm shower, prepares their breakfast with the coffee machine and the toaster.
+Leaves to work with their electric car.
+Comes home at 18:00 PM. Turns on the television, 
+
+```
+from scheduler.models import *
+import time
+home = Home.objects.get(pk=1)
+midnight = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)+timezone.timedelta(days=1)
+e1 = Execution.objects.create(home=home, request_time=midnight+timezone.timedelta(hours=7),
+appliance=Appliance.objects.get(pk=5),profile=Profile.objects.get(pk=19))
+e1 = Execution.objects.create(home=home, request_time=midnight+timezone.timedelta(hours=7),
+    appliance=Appliance.objects.get(pk=1))
+
+
+# Television
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=20))
+# Microwave
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=1))
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=2))
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=3))
+# Oven
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=4))
+# Heater (bedroom)
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=4),profile=Profile.objects.get(pk=17))
+# Water heater
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=5),profile=Profile.objects.get(pk=19))
+# Washing Machine
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=6),profile=Profile.objects.get(pk=10))
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=6),profile=Profile.objects.get(pk=11))
+# Dishwasher
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=7),profile=Profile.objects.get(pk=7))
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=7),profile=Profile.objects.get(pk=8))
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=7),profile=Profile.objects.get(pk=9))
+# Air Conditioner
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
+# Fridge
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=9),profile=Profile.objects.get(pk=6))
+# Coffee Machine
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=10),profile=Profile.objects.get(pk=13))
+# Vacuum Cleaner
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=11),profile=Profile.objects.get(pk=12))
+# Electric Vehicle
+Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=21))
+# Phone Charger
+
+# Laptop Charger
+
+# Hair Dryer
+
+
+```
+
+#### Single-house consumption with unlimited threshold - baseline
+
+
+#### Single-house consumption
+
+
+```
+import processor.core as core
+import processor.external_energy as ext
+from scheduler.models import *
+import time
+core.set_id(1)
+core.start()
+home = Home.objects.get(pk=1)
+
+```
+
+---
+
+<!-- ## General To-do
 - Implement multi-house mode recommendations in choose_execution_time
     * Three best times according to house strategy are sent to aggregator
-    * Aggregator decides on best time according to global consumption (aggregated load balancing)
+    * Aggregator decides on best time according to global consumption (aggregated load balancing) -->
 
 ### Scheduling strategies
 1. Peak-shaving: application scheduled to nearest available time

@@ -55,25 +55,25 @@ def is_battery_discharge_available(execution, start_time):
 def is_battery_charge_interruptible(execution):
     return ext.is_battery_charge_interruptible(execution)
 
-def schedule_battery_discharge_on_consumption_above_threshold(execution, current_time, start_time):
-    return ext.schedule_battery_discharge_on_consumption_above_threshold(execution, current_time, start_time, debug=True)
+def schedule_battery_discharge_on_consumption_above_threshold(execution, start_time):
+    return ext.schedule_battery_discharge_on_consumption_above_threshold(execution, start_time, debug=True)
 
 def schedule_battery_discharge_on_high_demand(current_time):
     return ext.schedule_battery_charge_on_low_demand(current_time, debug=True)
 
-def start_battery_executions(current_time, energy_needed, day_periods):
-    return ext.start_battery_executions(current_time, energy_needed, day_periods, debug=True)
+def start_battery_executions(energy_needed, day_periods):
+    return ext.start_battery_executions(energy_needed, day_periods, debug=True)
 
 def create_battery_execution(start_time, end_time, power):
     return ext.create_battery_execution(start_time, end_time, power)
 
-def schedule_battery_charge_on_solar(current_time, energy_needed):
-    return ext.schedule_battery_charge_on_solar(current_time, energy_needed, debug=True)
+def schedule_battery_charge_on_solar(energy_needed):
+    return ext.schedule_battery_charge_on_solar(energy_needed, debug=True)
 
-def schedule_battery_charge_on_low_demand(current_time, energy_needed):
-    return ext.schedule_battery_charge_on_low_demand(current_time, energy_needed, debug=True)
+def schedule_battery_charge_on_low_demand(energy_needed):
+    return ext.schedule_battery_charge_on_low_demand(energy_needed, debug=True)
 
-def schedule_battery_charge(start_time=timezone.now()):
+def schedule_battery_charge(start_time=None):
     return ext.schedule_battery_charge(start_time, debug=True)
 
 def get_high_consumption_periods(start_time):
