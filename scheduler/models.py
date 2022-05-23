@@ -1,4 +1,5 @@
 from django.db import models, transaction
+import aggregator
 from home.settings import INF_DATE
 from .settings import PEAK_SHAVING, PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
 from django.utils import timezone
@@ -9,10 +10,16 @@ from django.dispatch import receiver
 # Create your models here.
 
 class Home(models.Model):
+    outside_id = models.IntegerField(null=True)
     consumption_threshold = models.IntegerField(help_text="Consumption threshold (W)")
     accept_recommendations = models.BooleanField(default=False)
     strategy = models.IntegerField(choices=STRATEGY_OPTIONS, default=PEAK_SHAVING)
     is_running = models.BooleanField()
+
+    def set_outside_id(self, new_val):
+        with transaction.atomic():
+            self.outside_id = new_val
+            self.save()        
 
     def set_consumption_threshold(self, new_val):
         with transaction.atomic():

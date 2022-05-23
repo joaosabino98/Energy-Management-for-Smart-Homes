@@ -13,13 +13,12 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
 django.setup()
 
 # battery executions are accounted for in consumption
-def get_power_available_within(start_time, end_time):
+def get_power_threshold_within(start_time, end_time):
     home = Home.objects.get(pk=core.home_id)
     threshold = home.consumption_threshold
     production = get_minimum_production_within(start_time, end_time)
-    if production is not None:
-        threshold += production
-    return threshold
+    power = threshold + production
+    return power
 
 def get_battery_executions_within(start_time, end_time):
     home = Home.objects.get(pk=core.home_id)
@@ -240,13 +239,13 @@ def start_battery_executions(energy_needed, day_periods, debug=False):
             break
 
 # used before executions are scheduled to temporarily increase threshold
-def schedule_battery_discharge_on_consumption_above_threshold(execution, start_time, debug=False):
+def schedule_battery_discharge_on_consumption_above_threshold(start_time, end_time, debug=False):
     home = Home.objects.get(pk=core.home_id)
     if not hasattr(home, "batterystoragesystem"):
         raise NoBSSystemException()
-    end_time = core.calculate_execution_end_time(execution, start_time)
-    battery_power_needed = max(execution.profile.rated_power - get_power_available_within(start_time, end_time), get_battery_discharge_available(start_time, end_time))
-    execution = create_battery_execution(start_time, end_time, -battery_power_needed)
+    # battery_power_needed = min(get_battery_discharge_available(period[0], period[1]), power_needed)
+    battery_power_available = get_battery_discharge_available(start_time, end_time)
+    execution = create_battery_execution(start_time, end_time, -battery_power_available)
     core.start_execution(execution, start_time, debug)
 
 # used after executions are scheduled to ensure load balancing
@@ -315,7 +314,7 @@ def get_high_consumption_periods(start_time):
         prev_time = None
         for time in reference_times:
             if prev_time is not None and prev_time >= start_time:
-                high_consumption_threshold = floor(get_power_available_within(prev_time, time) * 0.625)
+                high_consumption_threshold = floor(get_power_threshold_within(prev_time, time) * 0.7)
                 consumption = core.get_maximum_consumption_within(prev_time, time)
                 if high_consumption_threshold < consumption:
                     allocable_power = consumption - high_consumption_threshold
@@ -330,7 +329,7 @@ def get_low_consumption_day_periods(start_time):
     prev_time = None
     for time in reference_times:
         if prev_time is not None and prev_time >= start_time:
-            low_consumption_threshold = floor(get_power_available_within(prev_time, time) * 0.375)
+            low_consumption_threshold = floor(get_power_threshold_within(prev_time, time) * 0.3)
             consumption = core.get_maximum_consumption_within(prev_time, time)
             if low_consumption_threshold > consumption:
                 allocable_power = low_consumption_threshold - consumption
@@ -381,4 +380,6 @@ def get_minimum_production_within(start_time, end_time):
             if minimum_production is None or power_production < minimum_production:
                 minimum_production = power_production
             time += timezone.timedelta(hours=1)
+    if minimum_production is None:
+        minimum_production = 0
     return minimum_production

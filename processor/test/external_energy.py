@@ -1,8 +1,8 @@
 import processor.external_energy as ext
 from django.utils import timezone
 
-def get_power_available_within(start_time, end_time):
-    return ext.get_power_available_within(start_time, end_time)
+def get_power_threshold_within(start_time, end_time):
+    return ext.get_power_threshold_within(start_time, end_time)
 
 def get_battery_executions_within(start_time, end_time):
     return ext.get_battery_executions_within(start_time, end_time)
