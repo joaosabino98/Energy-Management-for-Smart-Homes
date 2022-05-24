@@ -13,7 +13,7 @@ from scheduler.settings import INTERRUPTIBLE, LOW_PRIORITY, NORMAL, URGENT
 from scheduler.models import Home, Execution
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
-django.setup()
+# django.setup()
 
 def start_execution_job(id):
 	execution = Execution.objects.get(pk=id)
@@ -25,7 +25,7 @@ def finish_execution_job(id):
 	execution = Execution.objects.get(pk=id)
 	if execution.is_finished is False and execution.is_interrupted is False:
 		execution.set_finished()
-	home = Home.objects.get(pk=home_id)
+	home = execution.home
 	if home.compare_BSS_appliance(execution.appliance):
 		battery = home.batterystoragesystem
 		energy_stored = ext.get_battery_energy(execution.end_time)
@@ -333,12 +333,19 @@ def anticipate_pending_executions(current_time, debug=False):
 		else:
 			print("Unable to anticipate execution.")
 
-def start_aggregator_client(accept_recommendations):
+def start_aggregator_client():
 	home = Home.objects.get(pk=home_id)
-	home.set_accept_recommendations(accept_recommendations)
 	home.set_outside_id(home_id) # hack: home_id == outside_id only when simulating locally
-	cli.start()
+	home.set_accept_recommendations(True)
+	if not cli.started:
+		cli.start()
 	send_consumption_schedule()
+
+def stop_aggregator_client():
+	home = Home.objects.get(pk=home_id)
+	home.set_accept_recommendations(False)
+	if cli.started:
+		cli.stop()
 
 def send_consumption_schedule():
 	home = Home.objects.get(pk=home_id)

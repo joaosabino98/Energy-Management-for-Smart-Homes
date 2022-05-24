@@ -1,5 +1,4 @@
 from django.db import models, transaction
-import aggregator
 from home.settings import INF_DATE
 from .settings import PEAK_SHAVING, PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
 from django.utils import timezone
@@ -46,6 +45,9 @@ class Home(models.Model):
             return False
         else:
             return self.batterystoragesystem.appliance.id == appliance.id
+
+    def __str__(self):
+        return "Home"
 
 '''
 Profile class
@@ -181,12 +183,15 @@ class BatteryStorageSystem(models.Model):
     total_energy_capacity = models.IntegerField(help_text="Total energy capacity (Wh)")
     continuous_power = models.IntegerField(help_text="Continuous charge/discharge power (W)")
     last_full_charge_time = models.DateTimeField(default=timezone.now)
-    depth_of_discharge = models.FloatField(help_text="Depth-of-Discharge", default=1)
+    depth_of_discharge = models.FloatField(help_text="Maximum depth-of-discharge (between 0 and 1)", default=1)
 
     def set_last_full_charge_time(self, last_full_charge_time=timezone.now):
         with transaction.atomic():
             self.last_full_charge_time = last_full_charge_time
             self.save()
+
+    def __str__(self):
+        return "Battery Storage System"
 
 @receiver(post_save, sender=BatteryStorageSystem, dispatch_uid="create_bss_appliance")
 def create_bss_appliance(sender, instance, created, **kwargs):
@@ -207,6 +212,9 @@ class PhotovoltaicSystem(models.Model):
     tilt = models.IntegerField()
     azimut = models.IntegerField()
     capacity = models.IntegerField(help_text="System name plate capacity (Wdc)")
+    
+    def __str__(self):
+        return "Photovoltaic System"
 
 class ProductionData(models.Model):
     system = models.ForeignKey(PhotovoltaicSystem, on_delete=models.CASCADE)

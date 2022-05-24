@@ -10,7 +10,7 @@ from scheduler.settings import INTERRUPTIBLE, LOW_PRIORITY, NONINTERRUPTIBLE
 from processor.tools import compact_periods, power_to_energy, energy_to_power
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
-django.setup()
+# django.setup()
 
 # battery executions are accounted for in consumption
 def get_power_threshold_within(start_time, end_time):

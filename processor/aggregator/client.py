@@ -20,6 +20,11 @@ def start():
     global started
     started = True
 
+def stop():
+    global started
+    started = False
+    context.term()
+
 def get_consumption_periods(current_time):
     consumption_periods = {}
     reference_times = ext.get_day_reference_times(current_time)
