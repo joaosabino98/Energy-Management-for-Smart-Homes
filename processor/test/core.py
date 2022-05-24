@@ -72,8 +72,11 @@ def calculate_weighted_priority(execution, current_time):
 def anticipate_pending_executions(current_time):
     return core.anticipate_pending_executions(current_time, debug=True)
 
-def start_aggregator_client(accept_recommendations):
-    return core.start_aggregator_client(accept_recommendations)
+def start_aggregator_client():
+    return core.start_aggregator_client()
+
+def stop_aggregator_client():
+    return core.stop_aggregator_client()
 
 def send_consumption_schedule():
     return core.send_consumption_schedule()

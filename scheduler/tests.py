@@ -535,13 +535,14 @@ class MultihouseSystemTestCase(TestCase):
         core.set_id(1)
 
     def test_connect_to_aggregator_with_recommendations(self):
-        self.scheduler.start_aggregator_client(True)
+        self.scheduler.start_aggregator_client()
 
     def test_connect_to_aggregator_without_recommendations(self):
-        self.scheduler.start_aggregator_client(False)
+        self.scheduler.start_aggregator_client()
+        self.h1.set_accept_recommendations(False)
 
     def test_choose_on_empty_data(self):
-        self.scheduler.start_aggregator_client(True)
+        self.scheduler.start_aggregator_client()
         e = Execution.objects.create(home=self.h1, appliance=self.a1, profile=self.p1)
         status = self.scheduler.schedule_execution(e)
         e.refresh_from_db()
