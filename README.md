@@ -31,6 +31,9 @@
 ### Clean database and setup sample data (PowerShell script)
 `.\scripts\clean_setup.ps1`
 
+### Load Solar data (in solardata folder) as production data of the latest PV system added
+`echo 'exec(open("scripts/load_solar_data.py").read())' | python manage.py shell`
+
 ---
 
 ## Shell tests
@@ -61,6 +64,7 @@ assert e.status() == "Finished"
 e.delete()
 ```
 
+<!--
 ---
 
 ## Complex scenarios
@@ -134,13 +138,9 @@ core.start()
 home = Home.objects.get(pk=1)
 
 ```
-
 ---
+-->
 
-<!-- ## General To-do
-- Implement multi-house mode recommendations in choose_execution_time
-    * Three best times according to house strategy are sent to aggregator
-    * Aggregator decides on best time according to global consumption (aggregated load balancing) -->
 
 ### Scheduling strategies
 1. Peak-shaving: application scheduled to nearest available time
@@ -150,10 +150,10 @@ home = Home.objects.get(pk=1)
 1. Manage battery charging
     * if solar energy is enough to charge battery, charge exclusively during solar hours
     * if solar energy is available but not enough, charge using all solar energy + percentage of energy from grid
-    * if no solar energy, charge whenever consumption < 37.5% during day (up to 50% of available energy)
+    * if no solar energy, charge whenever consumption < 30% during day (up to 30% of available energy)
 
 2. Manage battery consumption
-    * schedule whenever consumption > 62.5% (down to 50%)
+    * schedule whenever consumption > 70% (down to 70%)
     * schedule if an increased threshold is needed for some execution
 
 3. Rules
@@ -169,9 +169,9 @@ home = Home.objects.get(pk=1)
 
 ---
 
+<!-- 
 ## Technical Documentation
 
-<!-- 
 ### Object classes
 
 ### SchedulerManager
@@ -186,7 +186,7 @@ Each execution has a priority ranging from 1 to 10, where 10 is the highest prio
 When a start request arrives, the script checks if there is enough available power to run the appliance immediately. This option is preferred in situations of low energy demand, 
 
 > Setting: don't start immediately if execution is not interruptible? or don't start immediately if power is above xx% of limit? -->
-
+<!--
 ### Appliance categorization
 An effective HEMS solution depends on accurate parametrization of appliance behaviour and time sensitiveness. Appliances can be primarily categorized regarding their ability to interrupt and resume their work. Some appliances can stop and resume with little to no loss of progress, such as recent models of washing machines or HVAC. These machines either keep track of their current progress, or perform a single task with continuous output, where an interruption at opportune times is considered acceptable by the user. Appliances within this category are classified as interruptible. On the other hand, appliances that are unable to resume their progress on restart, require a significant amount of energy to go back to the state before shutdown, or simply require continuous execution to achieve a goal, are considered non-interruptible. Examples are the oven, coffee machine, or even the television during an important segment.
 
@@ -213,7 +213,7 @@ However, in a house or building, multiple appliances can run simultaneously and 
 #### Appliance lifecycle
 
 #### Utility function
-<!-- Use deterministic priorities to avoid appliances cycling between on and off? -->
+Use deterministic priorities to avoid appliances cycling between on and off?
 
 ### Solar energy representation
 [PVWatts]
@@ -226,11 +226,13 @@ However, in a house or building, multiple appliances can run simultaneously and 
  - ZeroMQ (pyzmq)
 
 ### Future work
-<!-- Use real power, measured or reported by appliances, or a more accurate estimate based on the consumption profile across time -->
-<!-- Integrate proximity to desired temperature as a criteria for HVAC appliance priority decision -->
+Use real power, measured or reported by appliances, or a more accurate estimate based on the consumption profile across time
+Integrate proximity to desired temperature as a criteria for HVAC appliance priority decision
 
 ---
 
 ### Useful links / papers
 
 [1] H. Li, C. Zang, P. Zeng, H. Yu, Z. Li and N. Fenglian, "Optimal home energy management integrating random PV and appliances based on stochastic programming," 2016 Chinese Control and Decision Conference (CCDC), 2016, pp. 429-434, doi: 10.1109/CCDC.2016.7531023.
+
+-->
