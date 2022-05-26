@@ -2,7 +2,6 @@ from django.db import models, transaction
 from home.settings import INF_DATE
 from .settings import PEAK_SHAVING, PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
 from django.utils import timezone
-from math import floor
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -211,7 +210,7 @@ class PhotovoltaicSystem(models.Model):
     longitude = models.FloatField()
     tilt = models.IntegerField()
     azimut = models.IntegerField()
-    capacity = models.IntegerField(help_text="System name plate capacity (Wdc)")
+    capacity = models.IntegerField(help_text="System nameplate capacity (Wdc)")
     
     def __str__(self):
         return "Photovoltaic System"

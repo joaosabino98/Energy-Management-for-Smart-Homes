@@ -38,8 +38,7 @@
 ```
 import processor.core as core
 import processor.external_energy as ext
-from scheduler.models import *
-core.set_id(1)
+from coordinator.models import *
 core.start()
 home = Home.objects.get(pk=1)
 e = Execution.objects.create(home=home, appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
@@ -50,9 +49,8 @@ e.delete()
 ```
 import processor.core as core
 import processor.external_energy as ext
-from scheduler.models import *
+from coordinator.models import *
 import time
-core.set_id(1)
 core.start()
 home = Home.objects.get(pk=1)
 e = Execution.objects.create(home=home, appliance=Appliance.objects.get(pk=10),profile=Profile.objects.get(pk=30))
@@ -73,7 +71,7 @@ Leaves to work with their electric car.
 Comes home at 18:00 PM. Turns on the television, 
 
 ```
-from scheduler.models import *
+from coordinator.models import *
 import time
 home = Home.objects.get(pk=1)
 midnight = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)+timezone.timedelta(days=1)
@@ -130,9 +128,8 @@ Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=12),profil
 ```
 import processor.core as core
 import processor.external_energy as ext
-from scheduler.models import *
+from coordinator.models import *
 import time
-core.set_id(1)
 core.start()
 home = Home.objects.get(pk=1)
 

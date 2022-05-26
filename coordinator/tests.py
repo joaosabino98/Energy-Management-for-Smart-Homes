@@ -1,6 +1,6 @@
 from django.test import TestCase, tag
 from home.settings import INF_DATE
-from scheduler.settings import INTERRUPTIBLE, LOW_PRIORITY, NONINTERRUPTIBLE, NORMAL, PEAK_SHAVING, URGENT
+from .settings import INTERRUPTIBLE, LOW_PRIORITY, NONINTERRUPTIBLE, NORMAL, PEAK_SHAVING, URGENT
 from .models import Home, BatteryStorageSystem, Execution, Appliance, PhotovoltaicSystem, ProductionData, Profile
 import processor.test.core as core
 import processor.test.external_energy as ext
@@ -13,8 +13,7 @@ import time
 class PriorityTestCase(TestCase):
     def setUp(self):
         self.h1 = Home.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
-        self.scheduler = core 
-        core.set_id(1)
+        self.coordinator = core 
         p1 = Profile.objects.create(name="Low priority profile", schedulability=INTERRUPTIBLE, priority=LOW_PRIORITY, rated_power=0)
         p2 = Profile.objects.create(name="Normal priority profile", schedulability=INTERRUPTIBLE, priority=NORMAL, rated_power=0)
         p3 = Profile.objects.create(name="Immediate priority profile", schedulability=INTERRUPTIBLE, priority=URGENT, rated_power=0)
@@ -45,12 +44,12 @@ class PriorityTestCase(TestCase):
         e4 = Execution.objects.create(home=self.h1, request_time=rt4,appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1)) 
         e5 = Execution.objects.create(home=self.h1, request_time=rt5,appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1)) 
         e6 = Execution.objects.create(home=self.h1, request_time=rt6,appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1)) 
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e1, rt1), 1) # expected priority: 1
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e2, rt1), 2) # expected priority: 2
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e3, rt1), 3) # expected priority: 3
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e4, rt1), 5) # expected priority: 5
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e5, rt1), 6) # expected priority: 6
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e6, rt1), 8) # expected priority: 8
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e1, rt1), 1) # expected priority: 1
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e2, rt1), 2) # expected priority: 2
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e3, rt1), 3) # expected priority: 3
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e4, rt1), 5) # expected priority: 5
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e5, rt1), 6) # expected priority: 6
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e6, rt1), 8) # expected priority: 8
 
     def test_normal_priority_calculation(self):
         rt1 = timezone.now() # 1 hour remaining (maximum delay)
@@ -59,9 +58,9 @@ class PriorityTestCase(TestCase):
         e1 = Execution.objects.create(home=self.h1, request_time=rt1,appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=2))
         e2 = Execution.objects.create(home=self.h1, request_time=rt2,appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=2))
         e3 = Execution.objects.create(home=self.h1, request_time=rt3,appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=2))       
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e1, rt1), 7) # expected priority: 7
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e2, rt1), 9) # expected priority: 9
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e3, rt1), 10) # expected priority: 10
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e1, rt1), 7) # expected priority: 7
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e2, rt1), 9) # expected priority: 9
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e3, rt1), 10) # expected priority: 10
 
     def test_immediate_priority_calculation(self):
         rt1 = timezone.now() # 15 minutes remaining (maximum delay)
@@ -70,21 +69,21 @@ class PriorityTestCase(TestCase):
         e1 = Execution.objects.create(home=self.h1,request_time=rt1,appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=3))
         e2 = Execution.objects.create(home=self.h1,request_time=rt2,appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=3))
         e3 = Execution.objects.create(home=self.h1,request_time=rt3,appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=3))      
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e1, rt1), 10) # expected priority: 10
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e2, rt1), 10) # expected priority: 10
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e3, rt1), 10) # expected priority: 10
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e1, rt1), 10) # expected priority: 10
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e2, rt1), 10) # expected priority: 10
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e3, rt1), 10) # expected priority: 10
 
     def test_get_lower_priority_shiftable_executions(self):
         rt1 = timezone.now() # 1 hour remaining (maximum delay)
         rt2 = timezone.now()-timezone.timedelta(seconds=2700) # 15 minutes remaining
         e1 = Execution.objects.create(home=self.h1,request_time=rt1,appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=2))
         e2 = Execution.objects.create(home=self.h1,request_time=rt2,appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=2))
-        self.scheduler.schedule_execution(e1, rt1) # Interruptible, priority: 7
-        self.scheduler.schedule_execution(e2, rt1) # Interruptible, priority: 9
-        self.assertEqual(len(self.scheduler.get_lower_priority_shiftable_executions_within(rt2, rt2 + timezone.timedelta(hours=3), 4)), 0)
-        self.assertEqual(len(self.scheduler.get_lower_priority_shiftable_executions_within(rt2, rt2 + timezone.timedelta(hours=3), 7)), 0)
-        self.assertEqual(len(self.scheduler.get_lower_priority_shiftable_executions_within(rt2, rt2 + timezone.timedelta(hours=3), 9)), 1)
-        self.assertEqual(len(self.scheduler.get_lower_priority_shiftable_executions_within(rt2, rt2 + timezone.timedelta(hours=3), 10)), 2)
+        self.coordinator.schedule_execution(e1, rt1) # Interruptible, priority: 7
+        self.coordinator.schedule_execution(e2, rt1) # Interruptible, priority: 9
+        self.assertEqual(len(self.coordinator.get_lower_priority_shiftable_executions_within(self.h1, rt2, rt2 + timezone.timedelta(hours=3), 4)), 0)
+        self.assertEqual(len(self.coordinator.get_lower_priority_shiftable_executions_within(self.h1, rt2, rt2 + timezone.timedelta(hours=3), 7)), 0)
+        self.assertEqual(len(self.coordinator.get_lower_priority_shiftable_executions_within(self.h1, rt2, rt2 + timezone.timedelta(hours=3), 9)), 1)
+        self.assertEqual(len(self.coordinator.get_lower_priority_shiftable_executions_within(self.h1, rt2, rt2 + timezone.timedelta(hours=3), 10)), 2)
 
     def test_infinite_execution_priority_calculation(self):
         rt1 = timezone.now()
@@ -93,19 +92,18 @@ class PriorityTestCase(TestCase):
         e1 = Execution.objects.create(home=self.h1, request_time=rt1,appliance=Appliance.objects.get(pk=4),profile=Profile.objects.get(pk=4))
         e2 = Execution.objects.create(home=self.h1, request_time=rt2,appliance=Appliance.objects.get(pk=4),profile=Profile.objects.get(pk=4))
         e3 = Execution.objects.create(home=self.h1, request_time=rt3,appliance=Appliance.objects.get(pk=4),profile=Profile.objects.get(pk=4))
-        self.scheduler.schedule_execution(e1)
-        self.scheduler.schedule_execution(e2)
-        self.scheduler.schedule_execution(e3)
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e1, rt1), 3) # expected priority: 3
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e2, rt1), 3) # expected priority: 3
-        self.assertEqual(self.scheduler.calculate_weighted_priority(e3, rt1), 3) # expected priority: 3
+        self.coordinator.schedule_execution(e1)
+        self.coordinator.schedule_execution(e2)
+        self.coordinator.schedule_execution(e3)
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e1, rt1), 3) # expected priority: 3
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e2, rt1), 3) # expected priority: 3
+        self.assertEqual(self.coordinator.calculate_weighted_priority(e3, rt1), 3) # expected priority: 3
 
 """ Test execution lifecycle """
 class LifecycleTestCase(TestCase):
     def setUp(self):
         self.h1 = Home.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
-        self.scheduler = core
-        core.set_id(1)
+        self.coordinator = core
         p1 = Profile.objects.create(name="Test 1", schedulability=INTERRUPTIBLE, priority=URGENT, rated_power=2000, maximum_duration_of_usage=timezone.timedelta(seconds=3))
         p2 = Profile.objects.create(name="Test 2", schedulability=NONINTERRUPTIBLE, priority=NORMAL, rated_power=6000)
         a1 = Appliance.objects.create(home=self.h1, name="Test 1")
@@ -121,14 +119,14 @@ class LifecycleTestCase(TestCase):
 
     def test_execution_simple_scheduling(self):
         e = Execution.objects.create(home=self.h1, appliance=Appliance.objects.first(),profile=Profile.objects.first())
-        status = self.scheduler.schedule_execution(e)
+        status = self.coordinator.schedule_execution(e)
         e.refresh_from_db()
         self.assertEqual(status, 0)
         self.assertEqual(e.status(), "Started")
 
     def test_infinite_execution_simple_scheduling(self):
         e = Execution.objects.create(home=self.h1, appliance=Appliance.objects.last(),profile=Profile.objects.last())
-        status = self.scheduler.schedule_execution(e)
+        status = self.coordinator.schedule_execution(e)
         e.refresh_from_db()
         self.assertEqual(status, 0)
         self.assertEqual(e.status(), "Started")
@@ -139,10 +137,10 @@ class LifecycleTestCase(TestCase):
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.first(),profile=Profile.objects.first())
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.first(),profile=Profile.objects.first())
         e4 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.first(),profile=Profile.objects.first())
-        status1 = self.scheduler.schedule_execution(e1)
-        status2 = self.scheduler.schedule_execution(e2)
-        status3 = self.scheduler.schedule_execution(e3)
-        status4 = self.scheduler.schedule_execution(e4)  
+        status1 = self.coordinator.schedule_execution(e1)
+        status2 = self.coordinator.schedule_execution(e2)
+        status3 = self.coordinator.schedule_execution(e3)
+        status4 = self.coordinator.schedule_execution(e4)  
         e1.refresh_from_db()
         e2.refresh_from_db()
         e3.refresh_from_db()      
@@ -159,9 +157,9 @@ class LifecycleTestCase(TestCase):
     @tag('slow')
     def test_execution_finish(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.first(),profile=Profile.objects.first())
-        self.scheduler.schedule_execution(e1)
+        self.coordinator.schedule_execution(e1)
         time.sleep(2)
-        self.scheduler.finish_execution(e1)
+        self.coordinator.finish_execution(e1)
         e1.refresh_from_db()
         e1_time = e1.end_time - e1.start_time 
         self.assertEqual(e1.status(), "Finished")
@@ -170,9 +168,9 @@ class LifecycleTestCase(TestCase):
     @tag('slow')
     def test_execution_interrupt(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.first(),profile=Profile.objects.first())
-        self.scheduler.schedule_execution(e1)
+        self.coordinator.schedule_execution(e1)
         time.sleep(2)
-        self.scheduler.interrupt_execution(e1)
+        self.coordinator.interrupt_execution(e1)
         e1.refresh_from_db()
         e1_time = e1.end_time - e1.start_time 
         self.assertEqual(e1.status(), "Interrupted")
@@ -181,8 +179,7 @@ class LifecycleTestCase(TestCase):
 class FullSchedulingTestCase(TestCase):
     def setUp(self):
         self.h1 = Home.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
-        self.scheduler = core
-        core.set_id(1)
+        self.coordinator = core
         p1 = Profile.objects.create(name="Test 1", schedulability=INTERRUPTIBLE, priority=NORMAL, rated_power=2000, maximum_duration_of_usage=timezone.timedelta(seconds=7200))
         p2 = Profile.objects.create(name="Test 2", schedulability=INTERRUPTIBLE, priority=URGENT, rated_power=400, maximum_duration_of_usage=timezone.timedelta(seconds=300))
         p3 = Profile.objects.create(name="Test 3", schedulability=INTERRUPTIBLE, priority=LOW_PRIORITY, rated_power=2000, maximum_duration_of_usage=timezone.timedelta(seconds=7200))
@@ -201,17 +198,17 @@ class FullSchedulingTestCase(TestCase):
         e2 = Execution.objects.create(home=self.h1, appliance=a1, profile=p1)
         e3 = Execution.objects.create(home=self.h1, appliance=a1, profile=p1)
         e4 = Execution.objects.create(home=self.h1, appliance=a1, profile=p1)
-        self.scheduler.schedule_execution(e1)
-        self.scheduler.schedule_execution(e2)
-        self.scheduler.schedule_execution(e3)
-        self.scheduler.schedule_execution(e4)
+        self.coordinator.schedule_execution(e1)
+        self.coordinator.schedule_execution(e2)
+        self.coordinator.schedule_execution(e3)
+        self.coordinator.schedule_execution(e4)
 
     """
     e5 should have higher priority than e1-e4, and thus, displace e1 with shift_executions.
     """
     def test_shift_executions(self):
         e5 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=2))
-        status5 = self.scheduler.schedule_execution(e5)
+        status5 = self.coordinator.schedule_execution(e5)
         e1 = Execution.objects.get(pk=1)
         e5 = Execution.objects.get(pk=5)
         e6 = Execution.objects.get(pk=6)
@@ -227,7 +224,7 @@ class FullSchedulingTestCase(TestCase):
     """
     def test_schedule_later(self):
         e5 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.first(),profile=Profile.objects.first())
-        status5 = self.scheduler.schedule_execution(e5)
+        status5 = self.coordinator.schedule_execution(e5)
         e1 = Execution.objects.get(pk=1)
         e5 = Execution.objects.get(pk=5)
         self.assertEqual(status5, 0)  
@@ -237,7 +234,7 @@ class FullSchedulingTestCase(TestCase):
 
     def test_schedule_after_maximum_delay(self):
         e5 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.last(),profile=Profile.objects.last())
-        status5 = self.scheduler.schedule_execution(e5)
+        status5 = self.coordinator.schedule_execution(e5)
         e1 = Execution.objects.get(pk=1)
         e5 = Execution.objects.get(pk=5)
         self.assertEqual(status5, -1)  
@@ -248,7 +245,7 @@ class FullSchedulingTestCase(TestCase):
     def test_previous_progress_time(self):
         time.sleep(2)
         e5 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=2))
-        self.scheduler.schedule_execution(e5)
+        self.coordinator.schedule_execution(e5)
         e1 = Execution.objects.get(pk=1)
         e6 = Execution.objects.get(pk=6)
         self.assertGreater(e6.previous_progress_time.seconds, 0)
@@ -257,8 +254,7 @@ class FullSchedulingTestCase(TestCase):
 class ComplexSchedulingTestCase(TestCase):
     def setUp(self):
         self.h1 = Home.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
-        self.scheduler = core
-        core.set_id(1)
+        self.coordinator = core
         p1 = Profile.objects.create(name="Test 1", schedulability=NONINTERRUPTIBLE, priority=NORMAL,
             maximum_duration_of_usage=timezone.timedelta(seconds=7200), rated_power=4000)
         p2 = Profile.objects.create(name="Test 2", schedulability=INTERRUPTIBLE, priority=NORMAL,
@@ -286,10 +282,10 @@ class ComplexSchedulingTestCase(TestCase):
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=2))
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=3))
         e4 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=4))
-        status1 = self.scheduler.schedule_execution(e1)
-        status2 = self.scheduler.schedule_execution(e2)
-        status3 = self.scheduler.schedule_execution(e3)
-        status4 = self.scheduler.schedule_execution(e4)
+        status1 = self.coordinator.schedule_execution(e1)
+        status2 = self.coordinator.schedule_execution(e2)
+        status3 = self.coordinator.schedule_execution(e3)
+        status4 = self.coordinator.schedule_execution(e4)
         self.assertEqual(status1, 0)
         self.assertEqual(status2, 0)
         self.assertEqual(status3, 0)
@@ -298,12 +294,12 @@ class ComplexSchedulingTestCase(TestCase):
     def test_shift_noninterruptible_executions(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
-        status1 = self.scheduler.schedule_execution(e1)
-        status2 = self.scheduler.schedule_execution(e2)
+        status1 = self.coordinator.schedule_execution(e1)
+        status2 = self.coordinator.schedule_execution(e2)
         self.assertEqual(status1, 0)
         self.assertEqual(status2, 0)
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=3))
-        status3 = self.scheduler.schedule_execution(e3)
+        status3 = self.coordinator.schedule_execution(e3)
         self.assertEqual(status3, -1)
   
     def test_shift_executions(self):
@@ -311,12 +307,12 @@ class ComplexSchedulingTestCase(TestCase):
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=2))
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=3))
         e4 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=6))
-        self.scheduler.schedule_execution(e1)
-        self.scheduler.schedule_execution(e2)
-        self.scheduler.schedule_execution(e3)
-        self.scheduler.schedule_execution(e4)
+        self.coordinator.schedule_execution(e1)
+        self.coordinator.schedule_execution(e2)
+        self.coordinator.schedule_execution(e3)
+        self.coordinator.schedule_execution(e4)
         e5 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=6))
-        status5 = self.scheduler.schedule_execution(e5)
+        status5 = self.coordinator.schedule_execution(e5)
         self.assertEqual(status5, 2)
         e4.refresh_from_db()
         e5.refresh_from_db()
@@ -330,12 +326,12 @@ class ComplexSchedulingTestCase(TestCase):
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=2))
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=3))
         e4 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=4))
-        self.scheduler.schedule_execution(e1)
-        self.scheduler.schedule_execution(e2)
-        self.scheduler.schedule_execution(e3)
-        self.scheduler.schedule_execution(e4)
+        self.coordinator.schedule_execution(e1)
+        self.coordinator.schedule_execution(e2)
+        self.coordinator.schedule_execution(e3)
+        self.coordinator.schedule_execution(e4)
         e5 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=3))
-        status5 = self.scheduler.schedule_execution(e5)
+        status5 = self.coordinator.schedule_execution(e5)
         self.assertEqual(status5, 0)
         e4.refresh_from_db()
         e5.refresh_from_db()
@@ -345,55 +341,55 @@ class ComplexSchedulingTestCase(TestCase):
     def test_schedule_later(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
-        self.scheduler.schedule_execution(e1)
-        self.scheduler.schedule_execution(e2)
+        self.coordinator.schedule_execution(e1)
+        self.coordinator.schedule_execution(e2)
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=6))
-        status5 = self.scheduler.schedule_execution(e3)
+        status5 = self.coordinator.schedule_execution(e3)
         self.assertEqual(status5, 0)
         self.assertEqual(e3.status(), "Pending")
 
     def test_infinite_execution_schedule_later(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
-        self.scheduler.schedule_execution(e1)
-        self.scheduler.schedule_execution(e2)
+        self.coordinator.schedule_execution(e1)
+        self.coordinator.schedule_execution(e2)
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=5))
-        status3 = self.scheduler.schedule_execution(e3)
+        status3 = self.coordinator.schedule_execution(e3)
         self.assertEqual(status3, 0)
         self.assertEqual(e3.status(), "Pending")
 
     def test_infinite_execution_shift_non_interruptible_executions(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=6))
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=5))
-        self.scheduler.schedule_execution(e1)
-        self.scheduler.schedule_execution(e2)
+        self.coordinator.schedule_execution(e1)
+        self.coordinator.schedule_execution(e2)
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=5))
-        status3 = self.scheduler.schedule_execution(e3)
+        status3 = self.coordinator.schedule_execution(e3)
         self.assertEqual(status3, -1)
 
     def test_schedule_after_infinite_execution(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=5))
-        self.scheduler.schedule_execution(e1)
+        self.coordinator.schedule_execution(e1)
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=5))
-        status2 = self.scheduler.schedule_execution(e2)
+        status2 = self.coordinator.schedule_execution(e2)
         self.assertEqual(status2, -1)
 
     def test_anticipate_pending_executions(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=1))
-        self.scheduler.schedule_execution(e1)
-        self.scheduler.schedule_execution(e2)
+        self.coordinator.schedule_execution(e1)
+        self.coordinator.schedule_execution(e2)
         e3 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=2))
         e4 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=3))
         e5 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=2))
         e6 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=3))
         e7 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=6))
-        self.scheduler.schedule_execution(e3)
-        self.scheduler.schedule_execution(e4)
-        self.scheduler.schedule_execution(e5)
-        self.scheduler.schedule_execution(e6)
-        self.scheduler.schedule_execution(e7)
-        self.scheduler.finish_execution(e1)
+        self.coordinator.schedule_execution(e3)
+        self.coordinator.schedule_execution(e4)
+        self.coordinator.schedule_execution(e5)
+        self.coordinator.schedule_execution(e6)
+        self.coordinator.schedule_execution(e7)
+        self.coordinator.finish_execution(e1)
         e1.refresh_from_db()
         e3.refresh_from_db()
         e4.refresh_from_db()
@@ -410,8 +406,7 @@ class ComplexSchedulingTestCase(TestCase):
 class BSSystemTestCase(TestCase):
     def setUp(self):
         self.h1 = Home.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
-        self.scheduler = core
-        core.set_id(1)
+        self.coordinator = core
         p1 = Profile.objects.create(name="Test 1", schedulability=NONINTERRUPTIBLE, priority=NORMAL, maximum_duration_of_usage=timezone.timedelta(seconds=7200), rated_power=3600)
         p2 = Profile.objects.create(name="Test 2", schedulability=INTERRUPTIBLE, priority=NORMAL, maximum_duration_of_usage=timezone.timedelta(seconds=3600), rated_power=4000)
         a1 = Appliance.objects.create(home=self.h1, name="Test 1", maximum_delay=None)
@@ -428,69 +423,70 @@ class BSSystemTestCase(TestCase):
     def test_schedule_battery_discharge_on_high_demand(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1), profile=Profile.objects.get(pk=1))
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1), profile=Profile.objects.get(pk=2))
-        self.scheduler.schedule_execution(e1)
-        self.scheduler.schedule_execution(e2)
+        self.coordinator.schedule_execution(e1)
+        self.coordinator.schedule_execution(e2)
         e1.refresh_from_db()
         e2.refresh_from_db()
-        e3 = ext.get_last_battery_execution()
+        e3 = ext.get_last_battery_execution(self.h1)
         self.assertNotEqual(e3, Execution.objects.none())
         self.assertEqual(e3.profile.name, "BSS 2000W Discharge")
         self.assertEqual(e3.profile.rated_power, -2000)
-        self.assertLess(ext.get_battery_energy(e2.end_time), ext.get_battery_energy(timezone.now()))
-        self.assertEqual(ext.get_battery_energy(e2.end_time), ext.get_battery_energy(e1.end_time))
+        self.assertLess(ext.get_battery_energy(self.h1, e2.end_time), ext.get_battery_energy(self.h1, timezone.now()))
+        self.assertEqual(ext.get_battery_energy(self.h1, e2.end_time), ext.get_battery_energy(self.h1, e1.end_time))
 
     def test_schedule_battery_charge(self):
         battery = self.h1.batterystoragesystem
         start_time = timezone.now() - timezone.timedelta(hours=4)
         end_time = timezone.now()
-        e1 = ext.create_battery_execution(start_time, end_time, -4500)  
-        ext.schedule_battery_charge()
-        e2 = ext.get_last_battery_execution()
-        self.assertLessEqual(ext.get_battery_energy(e1.end_time), battery.total_energy_capacity * 0.01)
-        self.assertGreaterEqual(ext.get_battery_energy(e2.end_time), battery.total_energy_capacity * 0.99)
+        e1 = ext.create_battery_execution(self.h1, start_time, end_time, -4500)  
+        ext.schedule_battery_charge(self.h1)
+        e2 = ext.get_last_battery_execution(self.h1)
+        self.assertLessEqual(ext.get_battery_energy(self.h1, e1.end_time), battery.total_energy_capacity * 0.01)
+        self.assertGreaterEqual(ext.get_battery_energy(self.h1, e2.end_time), battery.total_energy_capacity * 0.99)
 
     def test_schedule_battery_charge_at_full(self):
         battery = self.h1.batterystoragesystem
         start_time = timezone.now()
-        ext.schedule_battery_charge()
-        e2 = ext.get_last_battery_execution()
+        ext.schedule_battery_charge(self.h1)
+        e2 = ext.get_last_battery_execution(self.h1)
         self.assertIsNone(e2)
-        self.assertEqual(ext.get_maximum_possible_battery_energy_discharge(start_time), battery.total_energy_capacity)
+        self.assertEqual(ext.get_maximum_possible_battery_energy_discharge(self.h1, start_time), battery.total_energy_capacity)
 
     def test_schedule_battery_charge_with_busy_schedule(self):
         battery = self.h1.batterystoragesystem
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1), profile=Profile.objects.get(pk=1))
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1), profile=Profile.objects.get(pk=2))
-        self.scheduler.schedule_execution(e1)
-        self.scheduler.schedule_execution(e2)
-        ext.schedule_battery_charge(ext.get_last_battery_execution().end_time)
-        self.assertEqual(ext.get_battery_energy(e2.end_time), 16000)
-        self.assertGreaterEqual(ext.get_battery_energy(ext.get_last_battery_execution().end_time), battery.total_energy_capacity * 0.99)
+        self.coordinator.schedule_execution(e1)
+        self.coordinator.schedule_execution(e2)
+        ext.schedule_battery_charge(self.h1, ext.get_last_battery_execution(self.h1).end_time)
+        self.assertEqual(ext.get_battery_energy(self.h1, e2.end_time), 16000)
+        self.assertGreaterEqual(ext.get_battery_energy(self.h1, ext.get_last_battery_execution(self.h1).end_time),
+            battery.total_energy_capacity * 0.99)
 
     def test_schedule_battery_charge_before_discharge(self):
         e1 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1), profile=Profile.objects.get(pk=1))
         e2 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.get(pk=1), profile=Profile.objects.get(pk=2))
-        self.scheduler.schedule_execution(e1)
-        self.scheduler.schedule_execution(e2)
-        ext.schedule_battery_charge()
-        self.assertEqual(ext.get_battery_energy(e2.end_time), ext.get_battery_energy(ext.get_last_battery_execution().end_time))
+        self.coordinator.schedule_execution(e1)
+        self.coordinator.schedule_execution(e2)
+        ext.schedule_battery_charge(self.h1)
+        self.assertEqual(ext.get_battery_energy(self.h1, e2.end_time),
+            ext.get_battery_energy(self.h1, ext.get_last_battery_execution(self.h1).end_time))
 
     def test_consecutive_schedule_battery_charge(self):
         start_time = timezone.now() - timezone.timedelta(hours=4)
         end_time = timezone.now()
-        e1 = ext.create_battery_execution(start_time, end_time, -4500)
-        ext.schedule_battery_charge()
-        e2 = ext.get_last_battery_execution()
-        ext.schedule_battery_charge(e2.end_time)
-        e3 = ext.get_last_battery_execution()
+        _  = ext.create_battery_execution(self.h1, start_time, end_time, -4500)
+        ext.schedule_battery_charge(self.h1)
+        e2 = ext.get_last_battery_execution(self.h1)
+        ext.schedule_battery_charge(self.h1, e2.end_time)
+        e3 = ext.get_last_battery_execution(self.h1)
         self.assertEqual(e2, e3)
-        self.assertEqual(ext.get_battery_energy(e2.end_time), ext.get_battery_energy(e3.end_time))
+        self.assertEqual(ext.get_battery_energy(self.h1, e2.end_time), ext.get_battery_energy(self.h1, e3.end_time))
 
 class PVSystemTestCase(TestCase):
     def setUp(self):
         self.h1 = Home.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
-        self.scheduler = core
-        core.set_id(1)
+        self.coordinator = core
         PhotovoltaicSystem.objects.create(home=self.h1, latitude=38.762, longitude=-9.155, tilt=20, azimut=180, capacity=6400)
         exec(open("scripts/load_solar_data.py").read())
 
@@ -504,10 +500,10 @@ class PVSystemTestCase(TestCase):
         day_before = march_day - timezone.timedelta(days=1)
         day_after = march_day + timezone.timedelta(days=1)
         BatteryStorageSystem.objects.create(home=self.h1, total_energy_capacity=18000, continuous_power=5500, last_full_charge_time=day_before)
-        e1 = ext.create_battery_execution(start_time, end_time, -4500)
-        ext.schedule_battery_charge(day_after)
-        for execution in ext.get_battery_charge_within(day_after, None):
-            self.assertLessEqual(execution.profile.rated_power, ext.get_power_production(execution.start_time))
+        _ = ext.create_battery_execution(self.h1, start_time, end_time, -4500)
+        ext.schedule_battery_charge(self.h1, day_after)
+        for execution in ext.get_battery_charge_within(self.h1, day_after, None):
+            self.assertLessEqual(execution.profile.rated_power, ext.get_power_production(self.h1, execution.start_time))
         
     def test_battery_charge_on_solar_december(self):
         december_day = timezone.now().replace(month=12, day=21, hour=0, minute=0, second=0, microsecond=0)
@@ -516,10 +512,10 @@ class PVSystemTestCase(TestCase):
         day_before = december_day - timezone.timedelta(days=1)
         day_after = december_day + timezone.timedelta(days=1)
         BatteryStorageSystem.objects.create(home=self.h1, total_energy_capacity=18000, continuous_power=5500, last_full_charge_time=day_before)
-        e1 = ext.create_battery_execution(start_time, end_time, -4500)
-        ext.schedule_battery_charge(day_after)
-        for execution in ext.get_battery_charge_within(day_after, None):
-            self.assertGreaterEqual(execution.profile.rated_power, ext.get_power_production(execution.start_time))   
+        _ = ext.create_battery_execution(self.h1, start_time, end_time, -4500)
+        ext.schedule_battery_charge(self.h1, day_after)
+        for execution in ext.get_battery_charge_within(self.h1, day_after, None):
+            self.assertGreaterEqual(execution.profile.rated_power, ext.get_power_production(self.h1, execution.start_time))   
 
 class ComplexBSSystemTestCase(TestCase):
     pass     
@@ -531,20 +527,19 @@ class MultihouseSystemTestCase(TestCase):
         self.p1 = Profile.objects.create(name="Test 1", schedulability=INTERRUPTIBLE, priority=URGENT, maximum_duration_of_usage=timezone.timedelta(seconds=3), rated_power=2000)
         self.a1 = Appliance.objects.create(home=self.h1, name="Test 1")
         self.a1.profiles.set([self.p1])
-        self.scheduler = core
-        core.set_id(1)
+        self.coordinator = core
 
     def test_connect_to_aggregator_with_recommendations(self):
-        self.scheduler.start_aggregator_client()
+        self.coordinator.start_aggregator_client(self.h1)
 
     def test_connect_to_aggregator_without_recommendations(self):
-        self.scheduler.start_aggregator_client()
+        self.coordinator.start_aggregator_client(self.h1)
         self.h1.set_accept_recommendations(False)
 
     def test_choose_on_empty_data(self):
-        self.scheduler.start_aggregator_client()
+        self.coordinator.start_aggregator_client(self.h1)
         e = Execution.objects.create(home=self.h1, appliance=self.a1, profile=self.p1)
-        status = self.scheduler.schedule_execution(e)
+        status = self.coordinator.schedule_execution(e)
         e.refresh_from_db()
         self.assertEqual(status, 0)
         self.assertEqual(e.status(), "Started")

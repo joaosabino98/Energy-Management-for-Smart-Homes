@@ -1,13 +1,8 @@
 from django.contrib import admin, messages
-from django.urls import reverse
-from django.utils.html import format_html
 from django.utils.translation import ngettext
-import processor.background as background
 import processor.core as core
 from .models import Home, BatteryStorageSystem, PhotovoltaicSystem, Appliance, Execution, Profile
 from .filters import StatusFilter, HiddenFilter
-
-background.start()
 
 # Register your models here.
 
@@ -16,7 +11,6 @@ class ExecutionAdmin(admin.ModelAdmin):
     def schedule_execution(self, request, queryset):
         updated = 0
         for execution in queryset:
-            core.set_id(execution.home.id)
             res = core.schedule_execution(execution, execution.request_time)
             if res != -1:
                 updated += 1
@@ -30,7 +24,6 @@ class ExecutionAdmin(admin.ModelAdmin):
     def finish_execution(self, request, queryset):
         updated = 0
         for execution in queryset:
-            core.set_id(execution.home.id)
             core.finish_execution(execution)
             updated += 1
 
@@ -64,13 +57,12 @@ class HomeAdmin(admin.ModelAdmin):
     @admin.action(description="Connect to aggregator")
     def connect_to_aggregator(self, request, queryset):
         for home in queryset:
-            core.set_id(home.id)
-            core.start_aggregator_client()
+            core.start_aggregator_client(home.id)
 
     @admin.action(description="Disconnect from aggregator")
     def disconnect_from_aggregator(self, request, queryset):
         for home in queryset:
-            home.set_accept_recommendations(False)
+            core.stop_aggregator_client(home.id)
 
     def has_delete_permission(self, request, obj=None):
             return False

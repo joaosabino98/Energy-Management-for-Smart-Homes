@@ -1,6 +1,6 @@
 [
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":1,
         "fields":{
             "name":"Microwave (100%)",
@@ -11,7 +11,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":2,
         "fields":{
             "name":"Microwave (80%)",
@@ -22,7 +22,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":3,
         "fields":{
             "name":"Microwave (Defrost)",
@@ -33,7 +33,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":4,
         "fields":{
             "name":"Oven",
@@ -44,7 +44,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":5,
         "fields":{
             "name":"Air Conditioner",
@@ -55,7 +55,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":6,
         "fields":{
             "name":"Fridge",
@@ -65,7 +65,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":7,
         "fields":{
             "name":"Dishwasher (ECO)",
@@ -76,7 +76,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":8,
         "fields":{
             "name":"Dishwasher (Regular)",
@@ -87,7 +87,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":9,
         "fields":{
             "name":"Dishwasher (Intensive)",
@@ -98,7 +98,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":10,
         "fields":{
             "name":"Washing Machine (7kg, Hot)",
@@ -109,7 +109,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":11,
         "fields":{
             "name":"Washing Machine (7kg, Cold)",
@@ -120,7 +120,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":12,
         "fields":{
             "name":"Vacuum Cleaner",
@@ -131,7 +131,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":13,
         "fields":{
             "name":"Coffee Machine",
@@ -142,7 +142,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":14,
         "fields":{
             "name":"Induction Cooker Burner (Small)",
@@ -153,7 +153,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":15,
         "fields":{
             "name":"Induction Cooker Burner (Medium)",
@@ -164,7 +164,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":16,
         "fields":{
             "name":"Induction Cooker Burner (Large)",
@@ -175,7 +175,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":17,
         "fields":{
             "name":"Heater (Small)",
@@ -186,7 +186,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":18,
         "fields":{
             "name":"Heater (Medium)",
@@ -197,7 +197,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":19,
         "fields":{
             "name":"Water Heater (Tank-Type, Small Storage)",
@@ -208,7 +208,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":20,
         "fields":{
             "name":"Television",
@@ -219,7 +219,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":21,
         "fields":{
             "name":"EV Charger",
@@ -230,7 +230,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":22,
         "fields":{
             "name":"45W Charger",
@@ -241,7 +241,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":23,
         "fields":{
             "name":"95W Charger",
@@ -252,7 +252,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":24,
         "fields":{
             "name":"Hair Dryer (High)",
@@ -263,7 +263,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":25,
         "fields":{
             "name":"Hair Dryer (Medium)",
@@ -274,7 +274,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":26,
         "fields":{
             "name":"Hair Dryer (Low)",
@@ -285,7 +285,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":27,
         "fields":{
             "name":"Toaster",
@@ -296,7 +296,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":28,
         "fields":{
             "name":"Lightbulb 20W",
@@ -307,7 +307,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":29,
         "fields":{
             "name":"Standby",
@@ -317,7 +317,7 @@
         }
     },
     {
-        "model":"scheduler.profile",
+        "model":"coordinator.profile",
         "pk":30,
         "fields":{
             "name":"[DEBUG] 5 second duration",

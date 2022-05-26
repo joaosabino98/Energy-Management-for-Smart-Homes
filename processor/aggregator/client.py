@@ -6,7 +6,7 @@ from django.utils import timezone
 import processor.core as core
 import processor.external_energy as ext
 from processor.tools import compact_periods
-from scheduler.models import NoAggregatorException
+from coordinator.models import NoAggregatorException
 
 context = zmq.Context()
 socket = None
@@ -25,13 +25,13 @@ def stop():
     started = False
     context.term()
 
-def get_consumption_periods(current_time):
+def get_consumption_periods(home, current_time):
     consumption_periods = {}
-    reference_times = ext.get_day_reference_times(current_time)
+    reference_times = ext.get_day_reference_times(home, current_time)
     prev_time = None
     for time in reference_times:
         if prev_time is not None:
-            power_from_grid = core.get_power_consumption(prev_time) - ext.get_power_production(prev_time)
+            power_from_grid = core.get_power_consumption(home, prev_time) - ext.get_power_production(home, prev_time)
             if power_from_grid != 0:
                 consumption_periods[(prev_time, time)] = power_from_grid
         prev_time = time
@@ -62,13 +62,13 @@ def send_choice_request(available_periods):
     print("Received reply: %s" % response)
     return response
 
-def send_update_schedule(home_id, request_time=None):
+def send_update_schedule(home, request_time=None):
     if request_time is None:
         request_time = timezone.now()
     if started:
-        consumption_periods = get_consumption_periods(request_time)
+        consumption_periods = get_consumption_periods(home, request_time)
         formatted_periods = format_time_periods(consumption_periods, True)
-        str = f"update {home_id} {json.dumps(formatted_periods)}".encode("utf-8")
+        str = f"update {home.outside_id} {json.dumps(formatted_periods)}".encode("utf-8")
         socket.send(str)
         response = socket.recv().decode("utf-8")
         print("Received reply: %s" % response)

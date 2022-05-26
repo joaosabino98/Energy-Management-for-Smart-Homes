@@ -1,6 +1,6 @@
 [
    {
-      "model":"scheduler.home",
+      "model":"coordinator.home",
       "pk":1,
       "fields":{
          "consumption_threshold":8000,
@@ -10,7 +10,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":1,
       "fields":{
          "home": 1,
@@ -20,7 +20,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":2,
       "fields":{
          "home": 1,
@@ -30,7 +30,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":3,
       "fields":{
          "home": 1,
@@ -40,7 +40,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":4,
       "fields":{
          "home": 1,
@@ -50,7 +50,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":5,
       "fields":{
          "home": 1,
@@ -60,7 +60,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":6,
       "fields":{
          "home": 1,
@@ -70,7 +70,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":7,
       "fields":{
          "home": 1,
@@ -80,7 +80,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":8,
       "fields":{
          "home": 1,
@@ -90,7 +90,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":9,
       "fields":{
          "home": 1,
@@ -100,7 +100,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":10,
       "fields":{
          "home": 1,
@@ -110,7 +110,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":11,
       "fields":{
          "home": 1,
@@ -120,7 +120,7 @@
       }
    },
    {
-      "model":"scheduler.appliance",
+      "model":"coordinator.appliance",
       "pk":12,
       "fields":{
          "home": 1,
@@ -130,7 +130,7 @@
       }
    },
    {
-      "model":"scheduler.batterystoragesystem",
+      "model":"coordinator.batterystoragesystem",
       "pk":1,
       "fields":{
          "home":1,
@@ -140,7 +140,7 @@
       }
    },
    {
-      "model":"scheduler.photovoltaicsystem",
+      "model":"coordinator.photovoltaicsystem",
       "pk":1,
       "fields":{
          "home":1,

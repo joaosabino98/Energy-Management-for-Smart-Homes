@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'scheduler.apps.SchedulerConfig',
+    'coordinator.apps.CoordinatorConfig',
     'aggregator.apps.AggregatorConfig',
     'django_extensions',
     "django_apscheduler",

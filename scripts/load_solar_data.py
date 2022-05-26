@@ -3,10 +3,10 @@ import django
 import os
 import re
 from math import floor
-from scheduler.models import PhotovoltaicSystem, ProductionData
+from coordinator.models import PhotovoltaicSystem, ProductionData
 from django.utils import timezone
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "coordinator.settings")
 django.setup()
 
 directory = f'{django.conf.settings.BASE_DIR}/solardata'

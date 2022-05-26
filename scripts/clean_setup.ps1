@@ -1,6 +1,6 @@
 # Run from root project folder
 
-Remove-Item .\scheduler\migrations\0*
+Remove-Item .\coordinator\migrations\0*
 Remove-Item .\aggregator\migrations\0*
 Remove-Item *.sqlite3
 Get-ChildItem '*.pyc' -Force -Recurse | Remove-Item -Force
