@@ -44,7 +44,7 @@ import processor.external_energy as ext
 from coordinator.models import *
 core.start()
 home = Home.objects.get(pk=1)
-e = Execution.objects.create(home=home, appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
+e = Execution.objects.create(home=home, appliance=Appliance.objects.get(pk=9),profile=Profile.objects.get(pk=6))
 core.schedule_execution(e)
 e.delete()
 ```

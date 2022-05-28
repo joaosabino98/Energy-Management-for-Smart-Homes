@@ -51,8 +51,8 @@ def start_execution(execution, start_time):
 def interrupt_execution(execution):
     return core.interrupt_execution(execution)
 
-def finish_execution(execution):
-    return core.finish_execution(execution, debug=True)
+def finish_execution(execution, end_time=None):
+    return core.finish_execution(execution, end_time, debug=True)
 
 def propose_schedule_execution(execution, request_time=None):
     return core.propose_schedule_execution(execution, request_time)

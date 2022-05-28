@@ -76,12 +76,15 @@ May require switching the profile for different uses.
 '''
 class Appliance(models.Model):
     home = models.ForeignKey(Home, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     profiles = models.ManyToManyField(Profile)
     maximum_delay = models.DurationField(default=timezone.timedelta(seconds=3600), null=True)
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['home', 'name'], name='unique_house_name')]
 
 '''
 Execution class
@@ -148,6 +151,11 @@ class Execution(models.Model):
                 else:
                     self.end_time = INF_DATE
             self.save()
+
+    def set_end_time(self, end_time):
+        with transaction.atomic():
+            self.end_time = end_time
+            self.save()
     
     def set_request_time(self, request_time):
         with transaction.atomic():
@@ -199,7 +207,7 @@ def create_bss_appliance(sender, instance, created, **kwargs):
                     home=instance.home,
                     name="Battery Storage System",
                     defaults={
-                        "maximum_delay": None
+                        "maximum_delay": timezone.timedelta(seconds=1)
                     }
                 )
         instance.save()
@@ -209,7 +217,7 @@ class PhotovoltaicSystem(models.Model):
     latitude = models.FloatField()
     longitude = models.FloatField()
     tilt = models.IntegerField()
-    azimut = models.IntegerField()
+    azimuth = models.IntegerField()
     capacity = models.IntegerField(help_text="System nameplate capacity (Wdc)")
     
     def __str__(self):

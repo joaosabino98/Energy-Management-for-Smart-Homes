@@ -113,7 +113,7 @@ def choose_execution_time(execution, available_periods):
 	maximum_delay = execution.appliance.maximum_delay
 	home = execution.home
 	if maximum_delay is not None:
-		available_periods = dict(filter(lambda e: e[0][0] - execution.request_time < maximum_delay, available_periods.items()))
+		available_periods = dict(filter(lambda e: e[0][0] - execution.request_time <= maximum_delay, available_periods.items()))
 	if available_periods:
 		priority = execution.profile.priority
 		if priority is LOW_PRIORITY and home.accept_recommendations:
@@ -131,9 +131,10 @@ def choose_execution_time(execution, available_periods):
 def get_available_execution_times(execution, minimum_start_time=None, include_bss=False, include_shiftable=False):
 	if minimum_start_time is None:
 		minimum_start_time = timezone.now()
+	timeout = minimum_start_time + timezone.timedelta(days=2)
 	home = execution.home
 	available_periods = {}
-	reference_times = get_consumption_reference_times_within(home, minimum_start_time, None)
+	reference_times = get_consumption_reference_times_within(home, minimum_start_time, timeout)
 	for proposed_start_time in reference_times:
 		proposed_end_time = calculate_execution_end_time(execution, proposed_start_time)
 		power_consumption = get_maximum_consumption_within(home, proposed_start_time, proposed_end_time)
@@ -164,7 +165,7 @@ def get_consumption_reference_times_within(home, start_time, end_time, queryset=
 	for execution in queryset:
 		if execution.start_time >= start_time:
 			time_list.append(execution.start_time)
-		if execution.end_time is not None and (end_time is None or execution.end_time < end_time):
+		if execution.end_time is not None and execution.end_time != INF_DATE and (end_time is None or execution.end_time < end_time):
 				time_list.append(execution.end_time)
 	time_list = sorted(list(dict.fromkeys(time_list)))
 	return time_list
@@ -186,7 +187,7 @@ def start_execution(execution, start_time, debug=False):
 				run_date=execution.end_time,
 				max_instances=1,
 				replace_existing=True)
-	print("Execution of " + execution.appliance.name + " starting at " + execution.start_time.strftime("%d/%m/%Y, %H:%M:%S."))
+	print("Execution of " + execution.appliance.name + " scheduled to start at " + execution.start_time.strftime("%d/%m/%Y, %H:%M:%S."))
 
 def interrupt_execution(execution):
 	execution.interrupt()
@@ -194,14 +195,23 @@ def interrupt_execution(execution):
 		background.remove_job(f"home_{execution.home.id}_execution_{execution.id}_finish")
 	print("Execution of " + execution.appliance.name + " interrupted at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))
 
-def finish_execution(execution, debug=False):
-	execution.finish()
-	if background.get_job(f"home_{execution.home.id}_execution_{execution.id}_finish") is not None:
-		background.remove_job(f"home_{execution.home.id}_execution_{execution.id}_finish")
-	print("Execution of " + execution.appliance.name + " finished by the user at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))
+def finish_execution(execution, end_time=None, debug=False):
 	home = execution.home
-	now = timezone.now()
-	anticipate_pending_executions(home, now, debug)
+	if end_time is None:
+		execution.finish()
+		if background.get_job(f"home_{home.id}_execution_{execution.id}_finish") is not None:
+			background.remove_job(f"home_{home.id}_execution_{execution.id}_finish")
+		print("Execution of " + execution.appliance.name + " finished by the user at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))
+	else:
+		if end_time < execution.end_time:
+			execution.set_end_time(end_time)
+			background.add_job(finish_execution_job, 'date', [execution.id],
+				id=f"home_{home.id}_execution_{execution.id}_finish",
+				run_date=execution.end_time,
+				max_instances=1,
+				replace_existing=True)	
+			print("Execution of " + execution.appliance.name + " scheduled by the user to finish at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))		
+	anticipate_pending_executions(home, execution.end_time, debug)
 
 def propose_schedule_execution(execution, request_time):
 	priority = execution.profile.priority

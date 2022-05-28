@@ -82,7 +82,7 @@ class BatteryStorageSystemAdmin(admin.ModelAdmin):
 
 class PhotovoltaicSystemAdmin(admin.ModelAdmin):
     list_display = ['__str__', 'latitude', 'longitude']
-    fields = ['latitude', 'longitude', 'tilt', 'azimut', 'capacity']
+    fields = ['latitude', 'longitude', 'tilt', 'azimuth', 'capacity']
     def has_delete_permission(self, request, obj=None):
             return False
 

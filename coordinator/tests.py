@@ -487,7 +487,7 @@ class PVSystemTestCase(TestCase):
     def setUp(self):
         self.h1 = Home.objects.create(consumption_threshold=8000, strategy=PEAK_SHAVING, is_running=False)
         self.coordinator = core
-        PhotovoltaicSystem.objects.create(home=self.h1, latitude=38.762, longitude=-9.155, tilt=20, azimut=180, capacity=6400)
+        PhotovoltaicSystem.objects.create(home=self.h1, latitude=38.762, longitude=-9.155, tilt=20, azimuth=180, capacity=6400)
         exec(open("scripts/load_solar_data.py").read())
 
     def test_load_solar_data(self):

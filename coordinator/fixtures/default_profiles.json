@@ -61,6 +61,7 @@
             "name":"Fridge",
             "schedulability":1,
             "priority":0,
+            "maximum_duration_of_usage":null,
             "rated_power":150
         }
     },
@@ -170,7 +171,7 @@
             "name":"Induction Cooker Burner (Large)",
             "schedulability":1,
             "priority":0,
-            "maximum_duration_of_usage":"00:40:00",
+            "maximum_duration_of_usage":"01:00:00",
             "rated_power":2500
         }
     },
@@ -214,7 +215,7 @@
             "name":"Television",
             "schedulability":0,
             "priority":1,
-            "maximum_duration_of_usage":"08:00:00",
+            "maximum_duration_of_usage":"04:00:00",
             "rated_power":150
         }
     },
@@ -280,7 +281,7 @@
             "name":"Hair Dryer (Low)",
             "schedulability":1,
             "priority":0,
-            "maximum_duration_of_usage":"00:15:00",
+            "maximum_duration_of_usage":"00:10:00",
             "rated_power":863
         }
     },
@@ -313,12 +314,46 @@
             "name":"Standby",
             "schedulability":0,
             "priority":2,
+            "maximum_duration_of_usage":null,
             "rated_power":4
         }
     },
     {
         "model":"coordinator.profile",
         "pk":30,
+        "fields":{
+            "name":"Gaming Computer",
+            "schedulability":1,
+            "priority":1,
+            "maximum_duration_of_usage":"04:00:00",
+            "rated_power":500
+        }
+    },
+    {
+        "model":"coordinator.profile",
+        "pk":31,
+        "fields":{
+            "name":"Soundbar",
+            "schedulability":0,
+            "priority":1,
+            "maximum_duration_of_usage":"01:30:00",
+            "rated_power":600
+        }
+    },
+    {
+        "model":"coordinator.profile",
+        "pk":32,
+        "fields":{
+            "name":"Cake Mixer",
+            "schedulability":1,
+            "priority":0,
+            "maximum_duration_of_usage":"00:30:00",
+            "rated_power":800
+        }
+    },
+    {
+        "model":"coordinator.profile",
+        "pk":32,
         "fields":{
             "name":"[DEBUG] 5 second duration",
             "schedulability":0,

@@ -39,6 +39,8 @@ def get_minimum_production_within(home, start_time, end_time):
     minimum_production = None
     if hasattr(home, "photovoltaicsystem"):
         time = start_time
+        if end_time > start_time + timezone.timedelta(days=2):
+            end_time = start_time + timezone.timedelta(days=2)
         while time < end_time:
             power_production = get_power_production(home, time)
             if minimum_production is None or power_production < minimum_production:

@@ -96,7 +96,7 @@
          "home": 1,
          "name":"Fridge",
          "profiles":[6],
-         "maximum_delay":"00:00:00"
+         "maximum_delay":"00:01:00"
       }
    },
    {
@@ -147,7 +147,7 @@
          "latitude": 38.762,
          "longitude": -9.155,
          "tilt": 20,
-         "azimut": 180,
+         "azimuth": 180,
          "capacity": 6400
       }
    }
