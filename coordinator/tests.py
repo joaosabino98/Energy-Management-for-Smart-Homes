@@ -232,15 +232,6 @@ class FullSchedulingTestCase(TestCase):
         self.assertEqual(e5.status(), "Pending")
         self.assertGreaterEqual(e5.start_time, e1.end_time)
 
-    def test_schedule_after_maximum_delay(self):
-        e5 = Execution.objects.create(home=self.h1, appliance=Appliance.objects.last(),profile=Profile.objects.last())
-        status5 = self.coordinator.schedule_execution(e5)
-        e1 = Execution.objects.get(pk=1)
-        e5 = Execution.objects.get(pk=5)
-        self.assertEqual(status5, -1)  
-        self.assertEqual(e1.status(), "Started")
-        self.assertEqual(e5.status(), "Pending")
-
     @tag('slow')
     def test_previous_progress_time(self):
         time.sleep(2)

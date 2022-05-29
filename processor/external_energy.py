@@ -1,5 +1,5 @@
 import os
-import django
+
 from home.settings import INF_DATE
 import processor.core as core
 from coordinator.models import Home, Execution, NoBSSystemException, NoPVSystemException, ProductionData
@@ -58,7 +58,7 @@ def get_high_consumption_periods(home, start_time):
         reference_times = core.get_consumption_reference_times_within(home, start_time, end_time)
         prev_time = None
         for time in reference_times:
-            if prev_time is not None and prev_time >= start_time:
+            if prev_time is not None:
                 high_consumption_threshold = floor(get_power_threshold_within(home, prev_time, time) * 0.7)
                 consumption = core.get_maximum_consumption_within(home, prev_time, time)
                 if high_consumption_threshold < consumption:
@@ -73,7 +73,7 @@ def get_low_consumption_day_periods(home, start_time):
     reference_times = get_day_reference_times(home, start_time)
     prev_time = None
     for time in reference_times:
-        if prev_time is not None and prev_time >= start_time:
+        if prev_time is not None:
             low_consumption_threshold = floor(get_power_threshold_within(home, prev_time, time) * 0.3)
             consumption = core.get_maximum_consumption_within(home, prev_time, time)
             if low_consumption_threshold > consumption:
@@ -89,8 +89,9 @@ def get_low_consumption_solar_day_periods(home, start_time, threshold_multiplier
         reference_times = get_day_reference_times(home, start_time)
         prev_time = None
         for time in reference_times:
-            if prev_time is not None and prev_time >= start_time:
-                low_consumption_threshold = floor(home.consumption_threshold * threshold_multiplier) + get_power_production(home, prev_time)
+            if prev_time is not None:
+                low_consumption_threshold = floor(home.consumption_threshold * threshold_multiplier) \
+                    + get_power_production(home, prev_time)
                 consumption = core.get_power_consumption(home, prev_time)
                 if low_consumption_threshold > consumption:
                     day_periods[(prev_time, time)] = low_consumption_threshold - consumption
@@ -273,6 +274,7 @@ def create_battery_execution(home, start_time, end_time, power):
     )
     return Execution.objects.create(
         home=home,
+        request_time=start_time,
         appliance=battery.appliance,
         profile=profile,
         start_time=start_time,
@@ -294,12 +296,14 @@ def start_battery_executions(home, energy_needed, day_periods, debug=False):
             break
 
 # used before executions are scheduled to temporarily increase threshold
-def schedule_battery_discharge_on_consumption_above_threshold(home, start_time, end_time, debug=False):
+def schedule_battery_discharge_on_consumption_above_threshold(home, start_time, end_time, rated_power=0, debug=False):
     if not hasattr(home, "batterystoragesystem"):
         raise NoBSSystemException()
     # battery_power_needed = min(get_battery_discharge_available(period[0], period[1]), power_needed)
     battery_power_available = get_battery_discharge_available(home, start_time, end_time)
-    execution = create_battery_execution(home, start_time, end_time, -battery_power_available)
+    min_consumption = core.get_minimum_consumption_within(home, start_time, end_time)
+    power = min(min_consumption + rated_power, battery_power_available)
+    execution = create_battery_execution(home, start_time, end_time, -power)
     core.start_execution(execution, start_time, debug)
 
 # used after executions are scheduled to ensure load balancing
@@ -318,21 +322,17 @@ def schedule_battery_charge_on_solar(home, start_time, energy_needed, debug=Fals
         raise NoBSSystemException()
     if not hasattr(home, "photovoltaicsystem"):
         raise NoPVSystemException()
-    low_demand = get_low_consumption_solar_day_periods(home, start_time, 0)
-    energy_to_allocate = get_allocable_battery_energy_charge(home, low_demand)
-    print(f"Energy on stategy 1: {energy_to_allocate}Wh")
-    if energy_to_allocate < energy_needed: 
-        low_demand = get_low_consumption_solar_day_periods(home, start_time, 0.1)
+    values = [-0.25, -0.1, 0, 0.1, 0.25]
+    success = False
+    for i in range(len(values)):
+        low_demand = get_low_consumption_solar_day_periods(home, start_time, values[i])
         energy_to_allocate = get_allocable_battery_energy_charge(home, low_demand)
-        print(f"Energy on stategy 2: {energy_to_allocate}Wh")
-        if energy_to_allocate < energy_needed: 
-            low_demand = get_low_consumption_solar_day_periods(home, start_time, 0.25)
-            energy_to_allocate = get_allocable_battery_energy_charge(home, low_demand)
-            print(f"Energy on stategy 3: {energy_to_allocate}Wh")
-            if energy_to_allocate < energy_needed: 
-                low_demand = get_low_consumption_day_periods(home, start_time)
-                energy_to_allocate = get_allocable_battery_energy_charge(home, low_demand)
-                print(f"Energy on stategy 4: {energy_to_allocate}Wh")
+        print(f"Energy on stategy {i}: {energy_to_allocate}Wh")
+        if energy_to_allocate >= energy_needed:
+            success = True
+            break
+    if not success:
+        low_demand = get_low_consumption_day_periods(home, start_time)
     start_battery_executions(home, energy_needed, low_demand, debug)
 
 def schedule_battery_charge_on_low_demand(home, start_time, energy_needed, debug=False):

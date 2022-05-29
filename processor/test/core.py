@@ -48,8 +48,8 @@ def get_consumption_reference_times_within(home, start_time, end_time, queryset=
 def start_execution(execution, start_time):
     return core.start_execution(execution, start_time, debug=True)
 
-def interrupt_execution(execution):
-    return core.interrupt_execution(execution)
+def interrupt_execution(execution, end_time=None):
+    return core.interrupt_execution(execution, end_time, debug=True)
 
 def finish_execution(execution, end_time=None):
     return core.finish_execution(execution, end_time, debug=True)
@@ -64,7 +64,7 @@ def shift_executions(execution, start_time, request_time=None):
     return core.shift_executions(execution, start_time, request_time, debug=True)
 
 def interrupt_shiftable_executions(home, start_time, end_time, rated_power, priority):
-    return core.interrupt_shiftable_executions(home, start_time, end_time, rated_power, priority)
+    return core.interrupt_shiftable_executions(home, start_time, end_time, rated_power, priority, debug=True)
 
 def get_shiftable_executions_power(home, start_time, end_time, priority):
     return core.get_shiftable_executions_power(home, start_time, end_time, priority)

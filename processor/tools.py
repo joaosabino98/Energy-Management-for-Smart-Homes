@@ -4,7 +4,7 @@ from django.utils import timezone
 def is_now(date):
     now = timezone.now()
     difference = (date - now).total_seconds()
-    if abs(difference) < 5:
+    if abs(difference) < 60:
         return True
     return False
 

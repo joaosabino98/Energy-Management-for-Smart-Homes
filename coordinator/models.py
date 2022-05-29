@@ -207,7 +207,7 @@ def create_bss_appliance(sender, instance, created, **kwargs):
                     home=instance.home,
                     name="Battery Storage System",
                     defaults={
-                        "maximum_delay": timezone.timedelta(seconds=1)
+                        "maximum_delay": timezone.timedelta(seconds=60)
                     }
                 )
         instance.save()
