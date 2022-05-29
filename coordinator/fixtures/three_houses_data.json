@@ -3,7 +3,7 @@
       "model":"coordinator.home",
       "pk":1,
       "fields":{
-         "consumption_threshold":3450,
+         "consumption_threshold":3105,
          "accept_recommendations":false,
          "strategy":0,
          "is_running":false
@@ -13,7 +13,7 @@
       "model":"coordinator.home",
       "pk":2,
       "fields":{
-         "consumption_threshold":4600,
+         "consumption_threshold":4150,
          "accept_recommendations":false,
          "strategy":0,
          "is_running":false
@@ -23,7 +23,7 @@
       "model":"coordinator.home",
       "pk":3,
       "fields":{
-         "consumption_threshold":5750,
+         "consumption_threshold":4900,
          "accept_recommendations":false,
          "strategy":0,
          "is_running":false
@@ -469,7 +469,7 @@
          "home": 3,
          "name":"Induction Cooker",
          "profiles":[14,15,16,33],
-         "maximum_delay":"00:01:00"
+         "maximum_delay":"00:04:00"
       }
    },
    {

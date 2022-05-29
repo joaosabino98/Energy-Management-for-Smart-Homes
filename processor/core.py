@@ -205,13 +205,11 @@ def interrupt_execution(execution, end_time=None, debug=False):
 	home = execution.home
 	if debug:
 		execution.interrupt() if end_time is None or tools.is_now(end_time) else execution.set_end_time(end_time)
-		print("Execution of " + execution.appliance.name + " interrupted at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))	
 	else:
 		if end_time is None:
 			execution.interrupt()
 			if background.get_job(f"home_{execution.home.id}_execution_{execution.id}_finish") is not None:
 				background.remove_job(f"home_{execution.home.id}_execution_{execution.id}_finish")
-			print("Execution of " + execution.appliance.name + " interrupted at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))
 		else:
 			execution.set_end_time(end_time)
 			background.add_job(finish_execution_job, 'date', [execution.id],
@@ -219,19 +217,17 @@ def interrupt_execution(execution, end_time=None, debug=False):
 				run_date=execution.end_time,
 				max_instances=1,
 				replace_existing=True)	
-			print("Execution of " + execution.appliance.name + " scheduled to interrupt at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))		
+	print("Execution of " + execution.appliance.name + " interrupted at " + execution.end_time.strftime("%d/%m/%Y, %H:%M:%S."))
 
 def finish_execution(execution, end_time=None, debug=False):
 	home = execution.home
 	if debug:
 		execution.finish() if end_time is None or tools.is_now(end_time) else execution.set_end_time(end_time)
-		print("Execution of " + execution.appliance.name + " finished at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))
 	else:
 		if end_time is None:
 			execution.finish()
 			if background.get_job(f"home_{home.id}_execution_{execution.id}_finish") is not None:
 				background.remove_job(f"home_{home.id}_execution_{execution.id}_finish")
-			print("Execution of " + execution.appliance.name + " finished by the user at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))
 		else:
 			if end_time < execution.end_time:
 				execution.set_end_time(end_time)
@@ -239,8 +235,8 @@ def finish_execution(execution, end_time=None, debug=False):
 					id=f"home_{home.id}_execution_{execution.id}_finish",
 					run_date=execution.end_time,
 					max_instances=1,
-					replace_existing=True)	
-				print("Execution of " + execution.appliance.name + " scheduled to finish at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))		
+					replace_existing=True)
+	print("Execution of " + execution.appliance.name + " finished at " + execution.end_time.strftime("%d/%m/%Y, %H:%M:%S."))
 	anticipate_pending_executions(home, execution.end_time, debug)
 
 def propose_schedule_execution(execution, request_time):
@@ -290,7 +286,7 @@ def schedule_execution(execution, request_time=None, debug=False):
 		case _:
 			print(f'[{chosen_strategy}] Unable to schedule appliance. Consider raising power threshold or increasing maximum delay.')
 	if chosen_time is not None:
-		check_high_consumption(home, chosen_time, calculate_execution_end_time(execution, chosen_time), request_time, debug)
+		check_high_consumption(home, request_time, debug)
 	send_consumption_schedule(home)
 	return chosen_strategy
 		
@@ -335,16 +331,15 @@ def get_shiftable_executions_power(home, start_time, end_time, priority):
 	maximum_shiftable_power = get_maximum_consumption_within(home, start_time, end_time, shiftable_executions)
 	return maximum_shiftable_power
 
-def check_high_consumption(home, start_time, end_time, current_time, debug=False):
-	if hasattr(home, "batterystoragesystem") and \
-		get_maximum_consumption_within(home, start_time, end_time) > ext.get_power_threshold_within(home, start_time, end_time) * 0.7:
-		running_charges = ext.get_battery_charge_within(home, start_time, end_time)
-		for execution in running_charges:
-			if ext.is_battery_charge_interruptible(execution):
-				interrupt_execution(execution, start_time, debug)
-		print("Attempting to schedule battery discharge on high demand.")
-		ext.schedule_battery_discharge_on_high_demand(home, current_time, debug)
-
+def check_high_consumption(home, start_time, debug=False):
+	if hasattr(home, "batterystoragesystem"):
+		high_demand = ext.get_high_consumption_periods(home, start_time)
+		for period in high_demand:
+			running_charges = ext.get_battery_charge_within(home, period[0], period[1])
+			for execution in running_charges:
+				if ext.is_battery_charge_interruptible(execution):
+					interrupt_execution(execution, period[0], debug)
+		ext.schedule_battery_discharge_on_high_demand(home, start_time, debug)
 def calculate_weighted_priority(execution, current_time):
 	maximum_delay = execution.appliance.maximum_delay
 	start_time = execution.start_time if execution.start_time is not None else current_time

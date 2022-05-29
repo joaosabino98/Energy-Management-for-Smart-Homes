@@ -69,8 +69,8 @@ def interrupt_shiftable_executions(home, start_time, end_time, rated_power, prio
 def get_shiftable_executions_power(home, start_time, end_time, priority):
     return core.get_shiftable_executions_power(home, start_time, end_time, priority)
 
-def check_high_consumption(home, start_time, end_time, current_time):
-    return core.check_high_consumption(home, start_time, end_time, current_time, debug=True)
+def check_high_consumption(home, start_time):
+    return core.check_high_consumption(home, start_time, debug=True)
 
 def calculate_weighted_priority(execution, current_time):
     return core.calculate_weighted_priority(execution, current_time)

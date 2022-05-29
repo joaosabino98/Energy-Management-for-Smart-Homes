@@ -7,8 +7,8 @@ import processor.core as coordinator
 
 from django.test import TestCase, tag
 from django.utils import timezone
-from coordinator.settings import INTERRUPTIBLE, LOW_PRIORITY, NONINTERRUPTIBLE, NORMAL, PEAK_SHAVING, URGENT
-from coordinator.models import Home, BatteryStorageSystem, Execution, Appliance, PhotovoltaicSystem, ProductionData, Profile
+from coordinator.settings import NONINTERRUPTIBLE, NORMAL
+from coordinator.models import Home, Execution, Appliance, Profile
 
 @tag('house1')
 class SingleHouse1TestCase(TestCase):
@@ -101,6 +101,7 @@ class SingleHouse1TestCase(TestCase):
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
 
+    @tag('managed')
     def test_scenario_scheduled_single_house_1(self):
         self.title = 'Managed consumption for household 1'
 
@@ -265,6 +266,7 @@ class SingleHouse2TestCase(TestCase):
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
 
+    @tag('managed')
     def test_scenario_scheduled_single_house_2(self):
         self.title = 'Managed consumption for household 2'
 
@@ -309,21 +311,6 @@ class SingleHouse3TestCase(TestCase):
     def setUp(self):
         home = Home.objects.get(pk=3)
         exec(open("scripts/load_solar_data.py").read())
-        # directory = f'{django.conf.settings.BASE_DIR}/solardata' 
-        # pv = home.photovoltaicsystem
-
-        # for filename in os.listdir(directory):
-        #     f = os.path.join(directory, filename)
-        #     if os.path.isfile(f):
-        #         with open(f, newline='') as csvfile:
-        #             csv_reader = csv.reader(csvfile, delimiter=',')
-        #             header = next(csv_reader)
-        #             month_name = re.sub("[\(\)]", "", header[0]).split()[3]
-        #             month = timezone.datetime.strptime(month_name, "%B").month
-        #             for row in csv_reader:
-        #                 watts = floor(float(row[1])*1000)
-        #                 ProductionData.objects.create(system=pv, month=month, hour=row[0], average_power_generated=watts)
-
         self.midnight = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
         self.title = ""
         coordinator.ext.create_battery_execution(
@@ -386,7 +373,7 @@ class SingleHouse3TestCase(TestCase):
             Execution.objects.create(
             home=home,
             appliance=Appliance.objects.get(home=home, name="Induction Cooker"),
-            profile=Profile.objects.get(pk=37),
+            profile=Profile.objects.get(pk=38),
             request_time=self.midnight + timezone.timedelta(hours=7, minutes=45)
         ))
         self.executions.append(
@@ -550,6 +537,7 @@ class SingleHouse3TestCase(TestCase):
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
 
+    @tag('managed')
     def test_scenario_scheduled_single_house_3(self):
         self.title = 'Managed consumption for household 3'
         home = Home.objects.get(pk=3)
@@ -564,6 +552,7 @@ class SingleHouse3TestCase(TestCase):
         myFmt = mdates.DateFormatter('%H:%M')
         morning_before = self.midnight + timezone.timedelta(days=0, hours=6)
         morning_after = self.midnight + timezone.timedelta(days=1, hours=6)
+        battery_left = coordinator.ext.get_battery_energy(home, morning_after)
         reference_times = coordinator.get_consumption_reference_times_within(home, morning_before, morning_after)
         x = np.array([get_np_time(time) for time in reference_times])
         y = np.array([coordinator.get_power_consumption(home, time) for time in reference_times])
@@ -587,16 +576,9 @@ class SingleHouse3TestCase(TestCase):
         peak = np.amax(y)
         average = np.average(y[0:-1], weights=weights)
         max_delay_to_max = np.amax(delay_to_max)
-        print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nMaximum DAWR: {max_delay_to_max}")
+        print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nMaximum DAWR: {max_delay_to_max}\n \
+            Battery left(%): {battery_left/home.batterystoragesystem.totalenergycapacity}")
         plt.show()
-
-# class SingleHouse3TestCase(TestCase):
-#     fixtures = ['coordinator/fixtures/default_profiles.json', 'coordinator/fixtures/three_houses_data.json']
-
-#     def setUp(self):
-#         exec(open("scripts/load_solar_data.py").read())
-#         midnight = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
-#         home = Home.objects.get(pk=3)
 
 def get_np_num(time):
     return mdates.date2num(timezone.make_naive(time))

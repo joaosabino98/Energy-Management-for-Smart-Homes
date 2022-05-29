@@ -420,8 +420,8 @@ class BSSystemTestCase(TestCase):
         e2.refresh_from_db()
         e3 = ext.get_last_battery_execution(self.h1)
         self.assertNotEqual(e3, Execution.objects.none())
-        self.assertEqual(e3.profile.name, "BSS 2000W Discharge")
-        self.assertEqual(e3.profile.rated_power, -2000)
+        self.assertEqual(e3.profile.name, "BSS 3600W Discharge")
+        self.assertEqual(e3.profile.rated_power, -3600)
         self.assertLess(ext.get_battery_energy(self.h1, e2.end_time), ext.get_battery_energy(self.h1, timezone.now()))
         self.assertEqual(ext.get_battery_energy(self.h1, e2.end_time), ext.get_battery_energy(self.h1, e1.end_time))
 
@@ -450,7 +450,7 @@ class BSSystemTestCase(TestCase):
         self.coordinator.schedule_execution(e1)
         self.coordinator.schedule_execution(e2)
         ext.schedule_battery_charge(self.h1, ext.get_last_battery_execution(self.h1).end_time)
-        self.assertEqual(ext.get_battery_energy(self.h1, e2.end_time), 16000)
+        self.assertLessEqual(ext.get_battery_energy(self.h1, e2.end_time), 16000)
         self.assertGreaterEqual(ext.get_battery_energy(self.h1, ext.get_last_battery_execution(self.h1).end_time),
             battery.total_energy_capacity * 0.99)
 

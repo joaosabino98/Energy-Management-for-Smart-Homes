@@ -62,7 +62,7 @@ def get_high_consumption_periods(home, start_time):
                 high_consumption_threshold = floor(get_power_threshold_within(home, prev_time, time) * 0.7)
                 consumption = core.get_maximum_consumption_within(home, prev_time, time)
                 if high_consumption_threshold < consumption:
-                    allocable_power = consumption - high_consumption_threshold
+                    allocable_power = consumption - floor(get_power_threshold_within(home, prev_time, time) * 0.5)
                     day_periods[(prev_time, time)] = allocable_power
             prev_time = time
         day_periods = compact_periods(day_periods)
