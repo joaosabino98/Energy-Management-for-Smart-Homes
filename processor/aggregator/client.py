@@ -26,8 +26,10 @@ def stop():
     context.term()
 
 def get_consumption_periods(home, current_time):
+    lower_bound = current_time - timezone.timedelta(days=3)
+    upper_bound = current_time + timezone.timedelta(days=3)
     consumption_periods = {}
-    reference_times = ext.get_day_reference_times(home, current_time)
+    reference_times = core.get_consumption_reference_times_within(home, lower_bound, upper_bound)
     prev_time = None
     for time in reference_times:
         if prev_time is not None:
@@ -59,7 +61,7 @@ def send_choice_request(available_periods):
     str = f"choose {json.dumps(formatted_periods)}".encode("utf-8")
     socket.send(str)
     response = socket.recv().decode("utf-8")
-    print("Received reply: %s" % response)
+    # print("Received reply: %s" % response)
     return response
 
 def send_update_schedule(home, request_time=None):
@@ -72,3 +74,9 @@ def send_update_schedule(home, request_time=None):
         socket.send(str)
         response = socket.recv().decode("utf-8")
         print("Received reply: %s" % response)
+
+def send_create_plot(graph_title):
+    str = f"plot {graph_title}".encode("utf-8")
+    socket.send(str)
+    response = socket.recv().decode("utf-8")
+    print("Received reply: %s" % response)

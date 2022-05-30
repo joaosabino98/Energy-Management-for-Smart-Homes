@@ -1,0 +1,607 @@
+[
+    {
+       "model":"coordinator.home",
+       "pk":1,
+       "fields":{
+          "consumption_threshold":3450,
+          "accept_recommendations":false,
+          "strategy":0,
+          "is_running":false
+       }
+    },
+    {
+       "model":"coordinator.home",
+       "pk":2,
+       "fields":{
+          "consumption_threshold":3450,
+          "accept_recommendations":false,
+          "strategy":0,
+          "is_running":false
+       }
+    },
+    {
+       "model":"coordinator.home",
+       "pk":3,
+       "fields":{
+          "consumption_threshold":3450,
+          "accept_recommendations":false,
+          "strategy":0,
+          "is_running":false
+       }
+    },
+    {
+        "model":"coordinator.home",
+        "pk":4,
+        "fields":{
+           "consumption_threshold":3450,
+           "accept_recommendations":false,
+           "strategy":0,
+           "is_running":false
+        }
+     }, 
+     {
+        "model":"coordinator.home",
+        "pk":5,
+        "fields":{
+           "consumption_threshold":3450,
+           "accept_recommendations":false,
+           "strategy":0,
+           "is_running":false
+        }
+     }, 
+    
+    {
+       "model":"coordinator.appliance",
+       "pk":null,
+       "fields":{
+          "home": 1,
+          "name":"Television (Living Room)",
+          "profiles":[20,37,39],
+          "maximum_delay":"00:20:00"
+       }
+    },
+    {
+       "model":"coordinator.appliance",
+       "pk":null,
+       "fields":{
+          "home": 1,
+          "name":"Hair Dryer",
+          "profiles":[24,25,26],
+          "maximum_delay":"00:05:00"
+       }
+    },
+    {
+       "model":"coordinator.appliance",
+       "pk":null,
+       "fields":{
+          "home": 1,
+          "name":"Toaster",
+          "profiles":[27],
+          "maximum_delay":"00:05:00"
+       }      
+    },
+    {
+       "model":"coordinator.appliance",
+       "pk":null,
+       "fields":{
+          "home": 1,
+          "name":"Microwave",
+          "profiles":[1,2,3,36],
+          "maximum_delay":"00:10:00"
+       }
+    },
+    {
+       "model":"coordinator.appliance",
+       "pk":null,
+       "fields":{
+          "home": 1,
+          "name":"Oven",
+          "profiles":[4],
+          "maximum_delay":"00:40:00"
+       }
+    },
+    {
+       "model":"coordinator.appliance",
+       "pk":null,
+       "fields":{
+          "home": 1,
+          "name":"Washing Machine",
+          "profiles":[35],
+          "maximum_delay":"12:00:00"
+       }
+    },
+    {
+       "model":"coordinator.appliance",
+       "pk":null,
+       "fields":{
+          "home": 1,
+          "name":"Dishwasher",
+          "profiles":[7,8,9],
+          "maximum_delay":"12:00:00"
+       }
+    },
+    {
+       "model":"coordinator.appliance",
+       "pk":null,
+       "fields":{
+          "home": 1,
+          "name":"Air Conditioner",
+          "profiles":[5],
+          "maximum_delay":"01:00:00"
+       }
+    },
+    {
+       "model":"coordinator.appliance",
+       "pk":null,
+       "fields":{
+          "home": 1,
+          "name":"Fridge",
+          "profiles":[6],
+          "maximum_delay":"00:01:00"
+       }
+    },
+    {
+       "model":"coordinator.appliance",
+       "pk":null,
+       "fields":{
+          "home": 1,
+          "name":"Coffee Machine",
+          "profiles":[13],
+          "maximum_delay":"00:05:00"
+       }
+    },
+    {
+       "model":"coordinator.appliance",
+       "pk":null,
+       "fields":{
+          "home": 1,
+          "name":"Vacuum Cleaner",
+          "profiles":[12],
+          "maximum_delay":"00:01:00"
+       }
+    },
+
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+           "home": 2,
+           "name":"Television (Living Room)",
+           "profiles":[20,37,39],
+           "maximum_delay":"00:20:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 2,
+            "name":"Hair Dryer",
+            "profiles":[24,25,26],
+            "maximum_delay":"00:05:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 2,
+            "name":"Toaster",
+            "profiles":[27],
+            "maximum_delay":"00:05:00"
+        }      
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 2,
+            "name":"Microwave",
+            "profiles":[1,2,3,36],
+            "maximum_delay":"00:10:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 2,
+            "name":"Oven",
+            "profiles":[4],
+            "maximum_delay":"00:40:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 2,
+            "name":"Washing Machine",
+            "profiles":[35],
+            "maximum_delay":"12:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 2,
+            "name":"Dishwasher",
+            "profiles":[7,8,9],
+            "maximum_delay":"12:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 2,
+            "name":"Air Conditioner",
+            "profiles":[5],
+            "maximum_delay":"01:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 2,
+            "name":"Fridge",
+            "profiles":[6],
+            "maximum_delay":"00:01:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 2,
+            "name":"Coffee Machine",
+            "profiles":[13],
+            "maximum_delay":"00:05:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 2,
+            "name":"Vacuum Cleaner",
+            "profiles":[12],
+            "maximum_delay":"00:01:00"
+        }
+    },
+
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 3,
+            "name":"Television (Living Room)",
+            "profiles":[20,37,39],
+            "maximum_delay":"00:20:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 3,
+            "name":"Hair Dryer",
+            "profiles":[24,25,26],
+            "maximum_delay":"00:05:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 3,
+            "name":"Toaster",
+            "profiles":[27],
+            "maximum_delay":"00:05:00"
+        }      
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 3,
+            "name":"Microwave",
+            "profiles":[1,2,3,36],
+            "maximum_delay":"00:10:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 3,
+            "name":"Oven",
+            "profiles":[4],
+            "maximum_delay":"00:40:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 3,
+            "name":"Washing Machine",
+            "profiles":[35],
+            "maximum_delay":"12:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 3,
+            "name":"Dishwasher",
+            "profiles":[7,8,9],
+            "maximum_delay":"12:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 3,
+            "name":"Air Conditioner",
+            "profiles":[5],
+            "maximum_delay":"01:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 3,
+            "name":"Fridge",
+            "profiles":[6],
+            "maximum_delay":"00:01:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 3,
+            "name":"Coffee Machine",
+            "profiles":[13],
+            "maximum_delay":"00:05:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 3,
+            "name":"Vacuum Cleaner",
+            "profiles":[12],
+            "maximum_delay":"00:01:00"
+        }
+    },
+
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 4,
+            "name":"Television (Living Room)",
+            "profiles":[20,37,39],
+            "maximum_delay":"00:20:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 4,
+            "name":"Hair Dryer",
+            "profiles":[24,25,26],
+            "maximum_delay":"00:05:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 4,
+            "name":"Toaster",
+            "profiles":[27],
+            "maximum_delay":"00:05:00"
+        }      
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 4,
+            "name":"Microwave",
+            "profiles":[1,2,3,36],
+            "maximum_delay":"00:10:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 4,
+            "name":"Oven",
+            "profiles":[4],
+            "maximum_delay":"00:40:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 4,
+            "name":"Washing Machine",
+            "profiles":[35],
+            "maximum_delay":"12:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 4,
+            "name":"Dishwasher",
+            "profiles":[7,8,9],
+            "maximum_delay":"12:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 4,
+            "name":"Air Conditioner",
+            "profiles":[5],
+            "maximum_delay":"01:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 4,
+            "name":"Fridge",
+            "profiles":[6],
+            "maximum_delay":"00:01:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 4,
+            "name":"Coffee Machine",
+            "profiles":[13],
+            "maximum_delay":"00:05:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 4,
+            "name":"Vacuum Cleaner",
+            "profiles":[12],
+            "maximum_delay":"00:01:00"
+        }
+    },
+
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 5,
+            "name":"Television (Living Room)",
+            "profiles":[20,37,39],
+            "maximum_delay":"00:20:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 5,
+            "name":"Hair Dryer",
+            "profiles":[24,25,26],
+            "maximum_delay":"00:05:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 5,
+            "name":"Toaster",
+            "profiles":[27],
+            "maximum_delay":"00:05:00"
+        }      
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 5,
+            "name":"Microwave",
+            "profiles":[1,2,3,36],
+            "maximum_delay":"00:10:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 5,
+            "name":"Oven",
+            "profiles":[4],
+            "maximum_delay":"00:40:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 5,
+            "name":"Washing Machine",
+            "profiles":[35],
+            "maximum_delay":"12:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 5,
+            "name":"Dishwasher",
+            "profiles":[7,8,9],
+            "maximum_delay":"12:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 5,
+            "name":"Air Conditioner",
+            "profiles":[5],
+            "maximum_delay":"01:00:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 5,
+            "name":"Fridge",
+            "profiles":[6],
+            "maximum_delay":"00:01:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 5,
+            "name":"Coffee Machine",
+            "profiles":[13],
+            "maximum_delay":"00:05:00"
+        }
+    },
+    {
+        "model":"coordinator.appliance",
+        "pk":null,
+        "fields":{
+            "home": 5,
+            "name":"Vacuum Cleaner",
+            "profiles":[12],
+            "maximum_delay":"00:01:00"
+        }
+    }
+]

@@ -12,14 +12,14 @@ def schedule_battery_charge_job(id):
 def send_consumption_schedule_job(id):
 	return core.send_consumption_schedule_job(id)
 
-def get_unfinished_executions(home):
-    return core.get_unfinished_executions(home)
+def get_unfinished_executions(home, request_time):
+    return core.get_unfinished_executions(home, request_time)
 
-def get_pending_executions(home):
-    return core.get_pending_executions(home)
+def get_pending_executions(home, request_time):
+    return core.get_pending_executions(home, request_time)
 
-def get_running_executions(home):
-    return core.get_running_executions(home)
+def get_running_executions(home, request_time):
+    return core.get_running_executions(home, request_time)
 
 def get_running_executions_within(home, start_time, end_time):
     return core.get_running_executions_within(home, start_time, end_time)
@@ -78,14 +78,14 @@ def calculate_weighted_priority(execution, current_time):
 def anticipate_pending_executions(home, current_time):
     return core.anticipate_pending_executions(home, current_time, debug=True)
 
-def start_aggregator_client(home):
-    return core.start_aggregator_client(home)
+def start_aggregator_client(home, accept_recommendations=True):
+    return core.start_aggregator_client(home, accept_recommendations)
 
 def stop_aggregator_client(home):
     return core.stop_aggregator_client(home)
 
-def send_consumption_schedule(home):
-    return core.send_consumption_schedule(home)
+def send_consumption_schedule(home, request_time=None):
+    return core.send_consumption_schedule(home, request_time)
     
 def change_threshold(home, threshold):
     return core.change_threshold(home, threshold)

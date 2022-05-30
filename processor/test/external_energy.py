@@ -20,6 +20,9 @@ def get_low_consumption_day_periods(home, start_time):
 def get_low_consumption_solar_day_periods(home, start_time, threshold_multiplier):
     return ext.get_low_consumption_solar_day_periods(home, start_time, threshold_multiplier)
 
+def get_battery_discharge_available_on_high_demand_periods(home, start_time, end_time, rated_power=0):
+    return ext.get_battery_discharge_available_on_high_demand_periods(home, start_time, end_time, rated_power)
+
 def get_minimum_production_within(home, start_time, end_time):
     return ext.get_minimum_production_within(home, start_time, end_time)
 
@@ -56,9 +59,6 @@ def get_battery_power_charge(home, time):
 
 def get_battery_power_discharge(home, time):
     return ext.get_battery_power_discharge(home, time)
-
-def get_minimum_battery_power_discharge_within(home, start_time, end_time):
-    return ext.get_minimum_battery_power_discharge_within(home, start_time, end_time)
 
 def get_maximum_battery_power_discharge_within(home, start_time, end_time):
     return ext.get_maximum_battery_power_discharge_within(home, start_time, end_time)

@@ -53,8 +53,8 @@ def get_minimum_production_within(home, start_time, end_time):
 """ Consumption-related methods """
 def get_high_consumption_periods(home, start_time):
     day_periods = {}
-    if core.get_unfinished_executions(home) is not None:
-        end_time = core.get_unfinished_executions(home).last().end_time
+    if core.get_unfinished_executions(home, start_time) is not None:
+        end_time = core.get_unfinished_executions(home, start_time).last().end_time
         reference_times = core.get_consumption_reference_times_within(home, start_time, end_time)
         prev_time = None
         for time in reference_times:
@@ -98,6 +98,22 @@ def get_low_consumption_solar_day_periods(home, start_time, threshold_multiplier
             prev_time = time
         day_periods = compact_periods(day_periods)
     return day_periods
+
+def get_battery_discharge_available_on_high_demand_periods(home, start_time, end_time, rated_power=0):
+    periods = {}
+    if hasattr(home, "batterystoragesystem"):
+        reference_times = core.get_consumption_reference_times_within(home, start_time, end_time)
+        prev_time = None
+        for time in reference_times:
+            if prev_time is not None:
+                battery_power_available = get_battery_discharge_available(home, prev_time, time)
+                consumption_above_threshold = core.get_maximum_consumption_within(home, prev_time, time) + rated_power - \
+                    floor(get_power_threshold_within(home, prev_time, time) * 0.5)
+                if consumption_above_threshold > 0:
+                    periods[(prev_time, time)] = min(battery_power_available, consumption_above_threshold)
+            prev_time = time
+        periods = compact_periods(periods)
+    return periods
 
 """ Battery-related methods """
 def get_battery_executions_within(home, start_time, end_time):
@@ -198,16 +214,6 @@ def get_battery_power_discharge(home, time):
         power -= discharge.profile.rated_power
     return power
 
-def get_minimum_battery_power_discharge_within(home, start_time, end_time):
-    minimum_discharge = None
-    if hasattr(home, "batterystoragesystem"):
-        reference_times = get_battery_discharge_reference_times_within(home, start_time, end_time)
-        for time in reference_times:
-            power_discharge = get_battery_power_discharge(home, time)
-            if minimum_discharge is None or power_discharge < minimum_discharge:
-                minimum_discharge = power_discharge
-    return minimum_discharge
-
 def get_maximum_battery_power_discharge_within(home, start_time, end_time):
     maximum_discharge = 0
     if hasattr(home, "batterystoragesystem"):
@@ -300,11 +306,10 @@ def schedule_battery_discharge_on_consumption_above_threshold(home, start_time, 
     if not hasattr(home, "batterystoragesystem"):
         raise NoBSSystemException()
     # battery_power_needed = min(get_battery_discharge_available(period[0], period[1]), power_needed)
-    battery_power_available = get_battery_discharge_available(home, start_time, end_time)
-    min_consumption = core.get_minimum_consumption_within(home, start_time, end_time)
-    power = min(min_consumption + rated_power, battery_power_available)
-    execution = create_battery_execution(home, start_time, end_time, -power)
-    core.start_execution(execution, start_time, debug)
+    available_periods = get_battery_discharge_available_on_high_demand_periods(home, start_time, end_time, rated_power)
+    for period in available_periods:
+        execution = create_battery_execution(home, period[0], period[1], -available_periods[period])
+        core.start_execution(execution, period[0], debug)
 
 # used after executions are scheduled to ensure load balancing
 def schedule_battery_discharge_on_high_demand(home, start_time, debug=False):

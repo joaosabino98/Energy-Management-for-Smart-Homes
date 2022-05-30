@@ -57,7 +57,7 @@ class HomeAdmin(admin.ModelAdmin):
     @admin.action(description="Connect to aggregator")
     def connect_to_aggregator(self, request, queryset):
         for home in queryset:
-            core.start_aggregator_client(home.id)
+            core.start_aggregator_client(home.id, True)
 
     @admin.action(description="Disconnect from aggregator")
     def disconnect_from_aggregator(self, request, queryset):

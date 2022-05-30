@@ -1,6 +1,9 @@
 import zmq
 import json
+import numpy as np
 
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from django.utils import timezone
 from aggregator.models import ConsumptionData
 from home.settings import INF_DATE
@@ -71,7 +74,6 @@ def handle_choose_time_request(period_string):
             selected_index = index
         index += 1
     str = f"{selected_index}".encode("utf-8")
-    # print(str)
     socket.send(str)
 
 def handle_update_schedule_request(home_id, period_string):
@@ -85,6 +87,33 @@ def handle_update_schedule_request(home_id, period_string):
     str = f"Consumption data updated.".encode("utf-8")
     socket.send(str)    
 
+def handle_create_consumption_plot_request(title):
+    myFmt = mdates.DateFormatter('%H:%M')
+    morning_before = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1,hours=18)
+    morning_after = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=2, hours=12)
+    reference_times = get_consumption_reference_times_within(morning_before, morning_after)
+    x = np.array([get_np_time(time) for time in reference_times])
+    y = np.array([get_power_consumption(time) for time in reference_times])
+    _, ax = plt.subplots(constrained_layout=True)
+    ax.step(x, y, where='post')
+    ax.set_title(title)
+    ax.set_xlabel('Time (hh:mm)')
+    ax.set_ylabel('Consumption (W)')
+    ax.xaxis.set_major_formatter(myFmt)
+    ax.xaxis.set_tick_params(rotation=40)
+
+    weights = []
+    for i in range(0, len(reference_times) - 1):
+        time = (reference_times[i+1] - reference_times[i]).seconds
+        weights.append(time)
+
+    peak = np.amax(y)
+    average = np.average(y[0:-1], weights=weights)
+    print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}")
+    plt.show()
+    str = f"OK.".encode("utf-8")
+    socket.send(str)    
+
 def parse_request(message):
     parsed_message = message.split(" ", 2)
     match parsed_message[0]:
@@ -92,8 +121,19 @@ def parse_request(message):
             handle_choose_time_request(message[7:])
         case 'update': # send all consumption periods
             handle_update_schedule_request(parsed_message[1], parsed_message[2])
+        case 'plot': # debug
+            parsed_message = message.split(" ", 1)
+            handle_create_consumption_plot_request(parsed_message[1])
+
 
 def receive_request():
     message = socket.recv().decode('utf-8')
     print("Received request: %s" % message)
     parse_request(message)
+
+def get_np_num(time):
+    return mdates.date2num(timezone.make_naive(time))
+
+def get_np_time(time):
+    return mdates.num2date(mdates.date2num(timezone.make_naive(time)))
+
