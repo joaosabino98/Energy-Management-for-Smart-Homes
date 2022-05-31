@@ -3,15 +3,17 @@ import django
 from math import floor
 from django.utils import timezone
 from apscheduler.triggers.cron import CronTrigger
-import processor.apsched as aps
+import processor.tools as tools
+import processor.background as aps
 import processor.external_energy as ext
-import processor.aggregator_client as cli
+import processor.aggregator.client as cli
 
-from scheduler.settings import IMMEDIATE, INF_DATE, INTERRUPTIBLE, LOAD_DISTRIBUTION, LOW_PRIORITY, NORMAL, PEAK_SHAVING, TIME_BAND
-from scheduler.models import Home, Execution
+from home.settings import INF_DATE
+from coordinator.settings import INTERRUPTIBLE, LOW_PRIORITY, NORMAL, URGENT
+from coordinator.models import Home, Execution
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
-django.setup()
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "coordinator.settings")
+# django.setup()
 
 def start_execution_job(id):
 	execution = Execution.objects.get(pk=id)
@@ -23,287 +25,330 @@ def finish_execution_job(id):
 	execution = Execution.objects.get(pk=id)
 	if execution.is_finished is False and execution.is_interrupted is False:
 		execution.set_finished()
-	home = Home.objects.get(pk=home_id)
+	home = execution.home
 	if home.compare_BSS_appliance(execution.appliance):
 		battery = home.batterystoragesystem
-		energy_stored = ext.get_battery_energy(execution.end_time)
+		energy_stored = ext.get_battery_energy(home, execution.end_time)
 		if energy_stored >= battery.total_energy_capacity * 0.99:
-			battery.last_full_charge_time = execution.end_time
-			battery.save()
-		elif energy_stored <= battery.total_energy_capacity * 0.01 and id == ext.get_last_battery_execution().id:
-			ext.schedule_battery_charge()
+			battery.set_last_full_charge_time(execution.end_time)
+		elif energy_stored < battery.total_energy_capacity * (1.1 - battery.depth_of_discharge) and \
+			id == ext.get_last_battery_execution(home).id:
+			ext.schedule_battery_charge(home)
 	print("Execution of " + execution.appliance.name + " finished by the system at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))
 
-def anticipate_high_priority_executions_job():
-	anticipate_high_priority_executions()
+def schedule_battery_charge_job(id):
+	home = Home.objects.get(pk=id)
+	ext.schedule_battery_charge(home)
 
-def schedule_battery_charge_job():
-	ext.schedule_battery_charge()
+def send_consumption_schedule_job(id):
+	home = Home.objects.get(pk=id)
+	send_consumption_schedule(home)
 
-def change_threshold(threshold):
-	home = Home.objects.get(pk=home_id)
-	home.set_consumption_threshold(threshold)
-	anticipate_pending_executions()
+def get_unfinished_executions(home, request_time):
+	return Execution.objects.filter(home=home).exclude(end_time__lt=request_time).order_by('end_time')
 
-def get_unfinished_executions():
-	date_limit = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) - timezone.timedelta(days=2)
-	return Execution.objects.filter(request_time__gt=date_limit).exclude(end_time__lt=timezone.now()).order_by('end_time')
+def get_pending_executions(home, request_time):
+	unfinished = get_unfinished_executions(home, request_time)
+	return unfinished.filter(start_time__gt=request_time)
 
-def get_pending_executions():
-	unfinished = get_unfinished_executions()
-	return unfinished.filter(start_time__gt=timezone.now())
+def get_running_executions(home, request_time):
+	unfinished = get_unfinished_executions(home, request_time)
+	return unfinished.filter(start_time__lte=request_time)
 
-def get_running_executions():
-	unfinished = get_unfinished_executions()
-	return unfinished.filter(start_time__lte=timezone.now())
-
-def get_running_executions_within(start_time, end_time):
-	unfinished = get_unfinished_executions()
+def get_running_executions_within(home, start_time, end_time):
+	unfinished = get_unfinished_executions(home, start_time)
 	if end_time is None:
 		return unfinished.filter(end_time__gt=start_time)
-	return unfinished.filter(start_time__lte=end_time).filter(end_time__gt=start_time)
+	return unfinished.filter(start_time__lte=end_time, end_time__gt=start_time)
 
-def get_lower_priority_shiftable_executions_within(start_time, end_time, target_power, target_priority):
+def get_lower_priority_shiftable_executions_within(home, start_time, end_time, target_priority):
 	shiftable_executions = []
-	home = Home.objects.get(pk=home_id)
-	for execution in get_running_executions_within(start_time, end_time):
-		priority = calculate_weighted_priority(execution)
+	for execution in get_running_executions_within(home, start_time, end_time):
+		priority = calculate_weighted_priority(execution, start_time)
 		if priority < target_priority and execution.profile.schedulability is INTERRUPTIBLE:
 			if home.compare_BSS_appliance(execution.appliance) and execution.profile.rated_power > 0:
-				if ext.is_battery_execution_interruptable(execution):
+				if ext.is_battery_charge_interruptible(execution):
 					shiftable_executions.append(execution)
 			else:
 				shiftable_executions.append(execution)
-	# sorted_keys = sorted(shiftable_executions, key=lambda e: get_maximum_consumption_within(e.start_time, e.end_time), reverse=True)
-	sorted_keys = sorted(shiftable_executions,
-		key=lambda e: (calculate_weighted_priority(e), get_positive_power_difference(e.profile.rated_power, target_power)))
+	sorted_keys = sorted(shiftable_executions, key=lambda e: (calculate_weighted_priority(e, start_time)))
 	return sorted_keys
 
-def get_power_consumption(time, queryset=None):
+def get_power_consumption(home, time, queryset=None):
 	rated_power = 0
 	if queryset is None:
-		queryset = get_running_executions_within(time, time)
+		queryset = get_running_executions_within(home, time, time)
+	else:
+		queryset = queryset.filter(start_time__lte=time, end_time__gt=time)
 	for execution in queryset:
 		rated_power += execution.profile.rated_power
 	return rated_power
 
-def get_maximum_consumption_within(start_time, end_time, queryset=None):
+def get_maximum_consumption_within(home, start_time, end_time, queryset=None):
 	peak_consumption = 0
 	if queryset is None:
-		queryset = get_running_executions_within(start_time, end_time)
-	reference_times = get_consumption_reference_times_within(start_time, end_time, queryset)
+		queryset = get_running_executions_within(home, start_time, end_time)
+	reference_times = get_consumption_reference_times_within(home, start_time, end_time, queryset)
 	for time in reference_times:
-		power_consumption = get_power_consumption(time, queryset)
+		power_consumption = get_power_consumption(home, time, queryset)
 		if power_consumption > peak_consumption:
 			peak_consumption = power_consumption
 	return peak_consumption
 
-def get_positive_power_difference(rated_power, target_power):
-	return rated_power - target_power if rated_power < target_power else float("inf")
+def get_minimum_consumption_within(home, start_time, end_time, queryset=None):
+	min_consumption = None
+	if queryset is None:
+		queryset = get_running_executions_within(home, start_time, end_time)
+	reference_times = get_consumption_reference_times_within(home, start_time, end_time, queryset)
+	for time in reference_times:
+		power_consumption = get_power_consumption(home, time, queryset)
+		if min_consumption is None or power_consumption < min_consumption:
+			min_consumption = power_consumption
+	if min_consumption is None or min_consumption < 0:
+		min_consumption = 0
+	return min_consumption
 
 def calculate_execution_end_time(execution, start_time, duration=None):
-	if execution.appliance.maximum_duration_of_usage is None and duration is None:
+	if execution.profile.maximum_duration_of_usage is None and duration is None:
 		end_time = INF_DATE
 	elif duration is not None:
 		remaining_execution_time = duration - execution.previous_progress_time
 		end_time = start_time + remaining_execution_time
 	else:
-		remaining_execution_time = execution.appliance.maximum_duration_of_usage - execution.previous_progress_time
+		remaining_execution_time = execution.profile.maximum_duration_of_usage - execution.previous_progress_time
 		end_time = start_time + remaining_execution_time
 	return end_time
 
 def choose_execution_time(execution, available_periods):
-	maximum_delay = execution.profile.maximum_delay
+	chosen_time = None
+	maximum_delay = execution.appliance.maximum_delay
+	home = execution.home
 	if maximum_delay is not None:
-		available_periods = dict(filter(lambda e: e[0][0] - execution.request_time < maximum_delay, available_periods.items()))
+		available_periods = dict(filter(lambda e: e[0][0] - execution.request_time <= maximum_delay, available_periods.items()))
 	if available_periods:
-		home = Home.objects.get(pk=home_id)
-		strategy = home.strategy
-		if home.accept_recommendations:
-			start_time = cli.send_choice_request(available_periods, execution.rated_power)
-			return start_time
+		priority = execution.profile.priority
+		if priority is LOW_PRIORITY and home.accept_recommendations:
+			chosen_index = int(cli.send_choice_request(available_periods))
+			start_time = list(available_periods.keys())[chosen_index][0]
+		elif priority is LOW_PRIORITY:
+			sorted_periods = {k: v for k, v in sorted(available_periods.items(), key=lambda item: item[1], reverse=True)}
+			start_time = next(iter(sorted_periods))[0]
 		else:
-			if strategy is PEAK_SHAVING:
-				earliest_start_time = next(iter(available_periods))[0]
-				return earliest_start_time
-			elif strategy is LOAD_DISTRIBUTION:
-				sorted_periods = {k: v for k, v in sorted(available_periods.items(), key=lambda item: item[1])}
-				for period in sorted_periods:
-					if period[0] - execution.request_time < maximum_delay:
-						return period[0]
-			else:
-				pass
+			start_time = next(iter(available_periods))[0]
+		if start_time != INF_DATE:
+			chosen_time = start_time
+	return chosen_time
 
-def get_available_execution_times(execution, minimum_start_time=timezone.now(), duration=None):
+def get_available_execution_times(execution, minimum_start_time=None, include_bss=False, include_shiftable=False):
+	if minimum_start_time is None:
+		minimum_start_time = timezone.now()
+	timeout = minimum_start_time + timezone.timedelta(days=2)
+	home = execution.home
 	available_periods = {}
-	reference_times = get_consumption_reference_times_within(minimum_start_time, None)
+	reference_times = get_consumption_reference_times_within(home, minimum_start_time, timeout)
 	for proposed_start_time in reference_times:
-		proposed_end_time = calculate_execution_end_time(execution, proposed_start_time, duration)
-		power_consumption = get_maximum_consumption_within(proposed_start_time, proposed_end_time)
-		power_available = ext.get_power_available_within(proposed_start_time, proposed_end_time) - power_consumption
+		proposed_end_time = calculate_execution_end_time(execution, proposed_start_time)
+		power_consumption = get_maximum_consumption_within(home, proposed_start_time, proposed_end_time)
+		power_available = ext.get_power_threshold_within(home, proposed_start_time, proposed_end_time) - power_consumption
+		if include_bss:
+			battery_power_available = ext.get_battery_discharge_available(home, proposed_start_time, proposed_end_time)
+			power_available += battery_power_available
+		if include_shiftable:
+			priority = calculate_weighted_priority(execution, proposed_start_time)
+			power_available += get_shiftable_executions_power(home, proposed_start_time, proposed_end_time, priority)
 		if power_available >= execution.profile.rated_power:
 			available_periods[(proposed_start_time, proposed_end_time)] = power_available
-	
 	return available_periods
-
-#TODO: attempt to shedule execution in parts instead of whole
-def get_available_fractioned_execution_time(execution, minimum_start_time=timezone.now()):
-	pass
 
 # Slight hack: returned list includes hourly references for at most two days
 # This means PV production times are included and periods can be found after timespan of running executions
-def get_consumption_reference_times_within(start_time, end_time, queryset=None):
+def get_consumption_reference_times_within(home, start_time, end_time, queryset=None):
 	time_list = [start_time]
 	if end_time is not None and end_time != INF_DATE:
 		time_list.append(end_time)
 	if start_time != INF_DATE:
 		hour_break = start_time.replace(minute=0, second=0, microsecond=0) + timezone.timedelta(hours=1)
 		date_limit = start_time.replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=2)
-		while hour_break < date_limit:
-			if end_time is not None and hour_break < end_time:
-				time_list.append(hour_break)
-				hour_break += timezone.timedelta(hours=1)
-			else:
-				break
+		while end_time is not None and hour_break < end_time and hour_break < date_limit:
+			time_list.append(hour_break)
+			hour_break += timezone.timedelta(hours=1)
 	if queryset is None:
-		queryset = get_running_executions_within(start_time, end_time)
+		queryset = get_running_executions_within(home, start_time, end_time)
 	for execution in queryset:
 		if execution.start_time >= start_time:
 			time_list.append(execution.start_time)
-		if execution.end_time is not None and (end_time is None or execution.end_time < end_time):
+		if execution.end_time is not None and execution.end_time != INF_DATE and (end_time is None or execution.end_time < end_time):
 				time_list.append(execution.end_time)
-	time_list.sort()
+	time_list = sorted(list(dict.fromkeys(time_list)))
 	return time_list
 
-def start_execution(execution, start_time=None, debug=False):
+def start_execution(execution, start_time, debug=False):
 	if debug:
-		execution.start() if start_time is None else execution.set_start_time(start_time)
+		execution.start() if tools.is_now(start_time) else execution.set_start_time(start_time)
 	else:
-		if start_time is None:
-			start_time = timezone.now()
 		if execution.start_time is None:
 			execution.set_start_time(start_time)
-		bgsched.add_job(start_execution_job, 'date', [execution.id],
+		background.add_job(start_execution_job, 'date', [execution.id],
 			run_date=execution.start_time,
-			id=str(execution.id) + "_start",
+			id=f"home_{execution.home.id}_execution_{execution.id}_start",
 			max_instances=1,
 			replace_existing=True)
 		if execution.end_time is not None:
-			bgsched.add_job(finish_execution_job, 'date', [execution.id],
-				id=str(execution.id) + "_finish",
+			background.add_job(finish_execution_job, 'date', [execution.id],
+				id=f"home_{execution.home.id}_execution_{execution.id}_finish",
 				run_date=execution.end_time,
 				max_instances=1,
 				replace_existing=True)
-	print("Execution of " + execution.appliance.name + " starting at " + execution.start_time.strftime("%d/%m/%Y, %H:%M:%S."))
+	print("Execution of " + execution.appliance.name + " scheduled to start at " + execution.start_time.strftime("%d/%m/%Y, %H:%M:%S."))
 
-def interrupt_execution(execution):
-	execution.interrupt()
-	if bgsched.get_job(f"{execution.id}_finish") is not None:
-		bgsched.remove_job(f"{execution.id}_finish")
-	print("Execution of " + execution.appliance.name + " interrupted at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))
-
-def finish_execution(execution, debug=False):
-	execution.finish()
-	if bgsched.get_job(f"{execution.id}_finish") is not None:
-		bgsched.remove_job(f"{execution.id}_finish")
-	print("Execution of " + execution.appliance.name + " finished by the user at " + timezone.now().strftime("%d/%m/%Y, %H:%M:%S."))
-	anticipate_pending_executions(debug)
-
-def schedule_execution(execution, debug=False):
-	now = timezone.now()
-	home = Home.objects.get(pk=home_id)
-	strategy = home.strategy
-	available_periods = get_available_execution_times(execution, now)
-	chosen_time = choose_execution_time(execution, available_periods)
-
-	if strategy is PEAK_SHAVING:
-		if chosen_time == now:
-			print("Enough available power.")
-			start_execution(execution, None, debug)
-			check_high_demand(now, calculate_execution_end_time(execution, now), now, debug)
-			return 1
-		elif ext.is_battery_discharge_available(execution, now):
-			print("Activating battery storage system.")
-			ext.schedule_battery_discharge_on_consumption_above_threshold(execution, now, now, debug)
-			start_execution(execution, None, debug)
-			return 1
+def interrupt_execution(execution, end_time=None, debug=False):
+	home = execution.home
+	if debug:
+		execution.interrupt() if end_time is None or tools.is_now(end_time) else execution.set_end_time(end_time)
+	else:
+		if end_time is None:
+			execution.interrupt()
+			if background.get_job(f"home_{execution.home.id}_execution_{execution.id}_finish") is not None:
+				background.remove_job(f"home_{execution.home.id}_execution_{execution.id}_finish")
 		else:
-			print("Unable to activate immediately. Attempting to shift lower priority running executions...")
-			success = shift_executions(execution, now, debug)
-			if success:
-				ext.schedule_battery_discharge_on_high_demand(now, debug)
-				return 2
-			else:
-				print("Unable to shift running executions.")
-				if chosen_time is not None and chosen_time != INF_DATE:
-					start_execution(execution, chosen_time, debug)
-					check_high_demand(chosen_time, calculate_execution_end_time(execution, chosen_time), now, debug)
-					return 3
-				else:
-					print("Unable to schedule execution within acceptable delay. Consider raising threshold or stopping appliances.")
-					ext.schedule_battery_discharge_on_high_demand(now, debug)
-					return 4
+			execution.set_end_time(end_time)
+			background.add_job(finish_execution_job, 'date', [execution.id],
+				id=f"home_{home.id}_execution_{execution.id}_finish",
+				run_date=execution.end_time,
+				max_instances=1,
+				replace_existing=True)	
+	print("Execution of " + execution.appliance.name + " interrupted at " + execution.end_time.strftime("%d/%m/%Y, %H:%M:%S."))
 
-def schedule_later(execution, debug=False):
-	now = timezone.now()
-	available_periods = get_available_execution_times(execution, now)
-	chosen_time = choose_execution_time(execution, available_periods)
-	start_execution(execution, chosen_time, debug)
+def finish_execution(execution, end_time=None, debug=False):
+	home = execution.home
+	if debug:
+		execution.finish() if end_time is None or tools.is_now(end_time) else execution.set_end_time(end_time)
+	else:
+		if end_time is None:
+			execution.finish()
+			if background.get_job(f"home_{home.id}_execution_{execution.id}_finish") is not None:
+				background.remove_job(f"home_{home.id}_execution_{execution.id}_finish")
+		else:
+			if end_time < execution.end_time:
+				execution.set_end_time(end_time)
+				background.add_job(finish_execution_job, 'date', [execution.id],
+					id=f"home_{home.id}_execution_{execution.id}_finish",
+					run_date=execution.end_time,
+					max_instances=1,
+					replace_existing=True)
+	print("Execution of " + execution.appliance.name + " finished at " + execution.end_time.strftime("%d/%m/%Y, %H:%M:%S."))
+	anticipate_pending_executions(home, execution.end_time, debug)
 
-def shift_executions(execution, start_time, debug=False):
-	priority = calculate_weighted_priority(execution)
+def propose_schedule_execution(execution, request_time):
+	priority = execution.profile.priority
+	start_times = [None, None, None]
+
+	# for low priority device, any time is fine
+	# for normal or immediate device, attempt to schedule immediately
+	for i in range(0, len(start_times)):
+		match i:
+			case 0:
+				available_periods = get_available_execution_times(execution, request_time, False, False)
+			case 1:
+				available_periods = get_available_execution_times(execution, request_time, True, False)
+			case 2:
+				available_periods = get_available_execution_times(execution, request_time, True, True)
+		start_times[i] = choose_execution_time(execution, available_periods)
+
+	if priority is LOW_PRIORITY:
+		chosen_time = next((time for time in start_times if time is not None), None)
+	else: 
+		chosen_time = min((time for time in start_times if time is not None), default=None)
+
+	chosen_strategy = start_times.index(chosen_time) if chosen_time is not None else -1
+	return chosen_strategy, chosen_time
+
+def schedule_execution(execution, request_time=None, debug=False):
+	if request_time is None:
+		request_time = timezone.now()
+	home = execution.home
+	chosen_strategy, chosen_time = propose_schedule_execution(execution, request_time)
+	match chosen_strategy:
+		case 0:
+			print(f'[1] Enough available power found.')
+			start_execution(execution, chosen_time, debug)
+		case 1:
+			print(f'[2] Activating Battery Storage System.')
+			ext.schedule_battery_discharge_on_consumption_above_threshold(home, chosen_time,
+				calculate_execution_end_time(execution, chosen_time), execution.profile.rated_power, debug)
+			start_execution(execution, request_time, debug)
+		case 2:
+			print(f'[3] Shifting lower priority executions.')
+			if hasattr(home, "batterystoragesystem"):
+				ext.schedule_battery_discharge_on_consumption_above_threshold(home, chosen_time,
+					calculate_execution_end_time(execution, chosen_time), execution.profile.rated_power, debug)
+			shift_executions(execution, chosen_time, request_time, debug)
+		case _:
+			print(f'[{chosen_strategy}] Unable to schedule appliance. Consider raising power threshold or increasing maximum delay.')
+	if chosen_time is not None:
+		check_high_consumption(home, request_time, debug)
+	send_consumption_schedule(home, request_time)
+	return chosen_strategy
+		
+def shift_executions(execution, start_time, request_time=None, debug=False):
+	if request_time is None:
+		request_time = timezone.now()
+	home = execution.home
+	priority = calculate_weighted_priority(execution, request_time)
 	rated_power = execution.profile.rated_power
 	end_time = calculate_execution_end_time(execution, start_time)
-	success, interrupted = interrupt_shiftable_executions(start_time, end_time, rated_power, priority)
-	if success:
-		print("Lower priority running executions found.")
-		start_execution(execution, None, debug)
-		home = Home.objects.get(pk=home_id)
-		for execution in interrupted:
-			#TODO: if it's battery, schedule with lower wattage
-			if not home.compare_BSS_appliance(execution.appliance):
-				new = Execution.objects.create(
-					home=home,
-					appliance=execution.appliance,
-					profile=execution.profile,
-					previous_progress_time=execution.end_time-execution.start_time+execution.previous_progress_time,
-					previous_waiting_time=execution.start_time-execution.request_time+execution.previous_waiting_time)
-				schedule_later(new, debug)
-		return success
+	interrupted = interrupt_shiftable_executions(home, start_time, end_time, rated_power, priority, debug)
 
-def interrupt_shiftable_executions(start_time, end_time, rated_power, priority):
-	home = Home.objects.get(pk=home_id)
-	running_executions = get_running_executions_within(start_time, end_time)
-	shiftable_executions = get_lower_priority_shiftable_executions_within(start_time, end_time, rated_power, priority)
-	minimum_power_available = home.consumption_threshold - get_maximum_consumption_within(start_time, end_time, running_executions)
-	maximum_shiftable_power = get_maximum_consumption_within(start_time, end_time, shiftable_executions)
+	start_execution(execution, start_time, debug)
+	for execution in interrupted:
+		#TODO: if it's battery, schedule with lower wattage
+		if not home.compare_BSS_appliance(execution.appliance):
+			new = Execution.objects.create(
+				home=home,
+				appliance=execution.appliance,
+				profile=execution.profile,
+				previous_progress_time=execution.end_time-execution.start_time+execution.previous_progress_time,
+				previous_waiting_time=execution.start_time-execution.request_time+execution.previous_waiting_time)
+			schedule_execution(new, request_time, debug)
 
-	if minimum_power_available + maximum_shiftable_power < rated_power:
-		return False, []
+def interrupt_shiftable_executions(home, start_time, end_time, rated_power, priority, debug):
+	shiftable_executions = get_lower_priority_shiftable_executions_within(home, start_time, end_time, priority)
+	running_executions = get_running_executions_within(home, start_time, end_time)
 	interrupted = []
 	for execution in shiftable_executions:
-		interrupt_execution(execution)
-		running_executions = get_running_executions_within(start_time, end_time).exclude(id=execution.id)
-		minimum_power_available = home.consumption_threshold - get_maximum_consumption_within(start_time, end_time, running_executions)
+		interrupt_execution(execution, start_time, debug)
+		running_executions = running_executions.exclude(id=execution.id)
+		minimum_power_available = ext.get_power_threshold_within(home, start_time, end_time) - \
+			get_maximum_consumption_within(home, start_time, end_time, running_executions)
 		interrupted.append(execution)
 		if minimum_power_available >= rated_power:
 			break
 
-	return True, interrupted
+	return interrupted
 
-def check_high_demand(start_time, end_time, current_time, debug=False):
-	home = Home.objects.get(pk=home_id)
-	if hasattr(home, "batterystoragesystem") and \
-		get_maximum_consumption_within(start_time, end_time) > ext.get_power_available_within(start_time, end_time) * 0.7:
-		print("Attempting to schedule battery discharge on high demand.")
-		ext.schedule_battery_discharge_on_high_demand(current_time, debug)
+def get_shiftable_executions_power(home, start_time, end_time, priority):
+	shiftable_executions_list = get_lower_priority_shiftable_executions_within(home, start_time, end_time, priority)
+	shiftable_executions = Execution.objects.filter(id__in=[e.id for e in shiftable_executions_list])
+	maximum_shiftable_power = get_maximum_consumption_within(home, start_time, end_time, shiftable_executions)
+	return maximum_shiftable_power
 
-def calculate_weighted_priority(execution):
-	maximum_delay = execution.profile.maximum_delay
-	start_time = execution.start_time if execution.start_time is not None else timezone.now()
+def check_high_consumption(home, start_time, debug=False):
+	if hasattr(home, "batterystoragesystem"):
+		high_demand = ext.get_high_consumption_periods(home, start_time)
+		for period in high_demand:
+			running_charges = ext.get_battery_charge_within(home, period[0], period[1])
+			for execution in running_charges:
+				if ext.is_battery_charge_interruptible(execution):
+					print(f"Execution interrupted: {execution.start_time} {execution.end_time}")
+					interrupt_execution(execution, period[0], debug)
+		ext.schedule_battery_discharge_on_high_demand(home, start_time, debug)
+
+def calculate_weighted_priority(execution, current_time):
+	maximum_delay = execution.appliance.maximum_delay
+	start_time = execution.start_time if execution.start_time is not None else current_time
 	waiting_time = start_time - execution.request_time + execution.previous_waiting_time
 
-	if execution.profile.priority is IMMEDIATE:
+	if execution.profile.priority is URGENT:
 		base_priority = 7
 	elif execution.profile.priority is NORMAL: 
 		base_priority = 3
@@ -319,57 +364,57 @@ def calculate_weighted_priority(execution):
 		priority = base_priority
 	return priority if priority < 10 else 10
 
-def anticipate_pending_executions(debug=False):
-	pending_executions = sorted(list(get_pending_executions()), key=lambda e: calculate_weighted_priority(e), reverse=True)
+def anticipate_pending_executions(home, current_time, debug=False):
+	pending_executions = sorted(list(get_pending_executions(home, current_time)), key=lambda e: calculate_weighted_priority(e, current_time), reverse=True)
 	for execution in pending_executions:
 		print(f"Attempting to anticipate execution {execution.id}.")
-		now = timezone.now()
-		available_periods = get_available_execution_times(execution, now)
-		chosen_time = choose_execution_time(execution, available_periods)
-		if chosen_time == now:
-			start_execution(execution, None, debug)
-		elif chosen_time < execution.start_time:
-			start_execution(execution, chosen_time, debug)
+		_, chosen_time = propose_schedule_execution(execution, current_time)
+		if chosen_time < execution.start_time:
+			schedule_execution(execution, current_time, debug)
 		else:
 			print("Unable to anticipate execution.")
 
-def anticipate_high_priority_executions(debug=False):
-	pending_executions = sorted(list(get_pending_executions()), key=lambda e: calculate_weighted_priority(e), reverse=True)
-	for execution in pending_executions:
-		if calculate_weighted_priority(execution) > 7:
-			now = timezone.now()
-			success = shift_executions(execution, now, debug)
-			if not success:
-				print("Unable to anticipate execution.")
+def start_aggregator_client(home, accept_recommendations=True):
+	home.set_outside_id(home.id) # hack: home_id == outside_id only when simulating locally
+	home.set_accept_recommendations(accept_recommendations)
+	if not cli.started:
+		cli.start()
+	send_consumption_schedule(home)
 
-#TODO: send power consumption times
-def start_accepting_reccomendations():
-	home = Home.objects.get(pk=home_id)
-	home.set_accept_recommendations(True)
-	cli.start()
+def stop_aggregator_client(home):
+	home.set_accept_recommendations(False)
+	if cli.started and not Home.objects.filter(accept_recommendations=True):
+		cli.stop()
+
+def send_consumption_schedule(home, request_time=None):
+	if cli.started and home.outside_id is not None:
+		cli.send_update_schedule(home, request_time)
+
+def change_threshold(home, threshold):
+	home.set_consumption_threshold(threshold)
+	now = timezone.now()
+	anticipate_pending_executions(home, now)
 
 def start():
-	home = Home.objects.get(pk=home_id)
 	aps.start()
-	bgsched.add_job(
-		anticipate_high_priority_executions_job,
-		trigger=CronTrigger(minute=f"*/{step}"),
-		id="anticipate_high_priority_executions",
-		replace_existing=True)
-	if hasattr(home, "batterystoragesystem"):
-		bgsched.add_job(
-			schedule_battery_charge_job,
-			trigger=CronTrigger(hour=0),
-			id="schedule_battery_charge",
-			replace_existing=True
-		)
-	home.set_running(True)
+	for home in Home.objects.all():
+		if hasattr(home, "batterystoragesystem"):
+			background.add_job(
+				schedule_battery_charge_job,
+				args=[home.id],
+				trigger=CronTrigger(hour=2),
+				id=f"schedule_battery_charge_{home.id}",
+				replace_existing=True
+			)
+		if cli.started and home.outside_id is not None:
+			background.add_job(
+				send_consumption_schedule_job,
+				args=[home.id],
+				trigger=CronTrigger(hour="*/4"),
+				id=f"send_consumption_schedule_{home.id}",
+				replace_existing=True
+			)
+		home.set_running(True)
 	print("Start process complete.")
 
-def set_id(id):
-	global home_id
-	home_id = id
-
-
-step = 15
-bgsched = aps.scheduler
+background = aps.scheduler

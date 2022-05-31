@@ -9,7 +9,7 @@ from django_apscheduler.models import DjangoJobExecution
 from django_apscheduler import util
 
 logger = logging.getLogger(__name__)
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "scheduler.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "coordinator.settings")
 
 job_store = {
 	'default': DjangoJobStore()

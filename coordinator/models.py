@@ -1,17 +1,23 @@
 from django.db import models, transaction
-from .settings import INF_DATE, INTERRUPTIBLE, LOW_PRIORITY, PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
+from home.settings import INF_DATE
+from .settings import PEAK_SHAVING, PRIORITY_OPTIONS, SCHEDULABILITY_OPTIONS, STRATEGY_OPTIONS
 from django.utils import timezone
-from math import floor
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 # Create your models here.
 
 class Home(models.Model):
+    outside_id = models.IntegerField(null=True)
     consumption_threshold = models.IntegerField(help_text="Consumption threshold (W)")
     accept_recommendations = models.BooleanField(default=False)
-    strategy = models.IntegerField(choices=STRATEGY_OPTIONS)
+    strategy = models.IntegerField(choices=STRATEGY_OPTIONS, default=PEAK_SHAVING)
     is_running = models.BooleanField()
+
+    def set_outside_id(self, new_val):
+        with transaction.atomic():
+            self.outside_id = new_val
+            self.save()        
 
     def set_consumption_threshold(self, new_val):
         with transaction.atomic():
@@ -39,6 +45,9 @@ class Home(models.Model):
         else:
             return self.batterystoragesystem.appliance.id == appliance.id
 
+    def __str__(self):
+        return "Home"
+
 '''
 Profile class
 Generic profiles for appliances, with rated power and default priority.
@@ -52,7 +61,7 @@ class Profile(models.Model):
     priority = models.IntegerField(
         choices=PRIORITY_OPTIONS
     )
-    maximum_delay = models.DurationField(default=timezone.timedelta(seconds=3600), null=True)
+    maximum_duration_of_usage = models.DurationField(null=True)
     rated_power = models.IntegerField(help_text="Rated power (W)")
     hidden = models.BooleanField(default=False)
 
@@ -67,12 +76,15 @@ May require switching the profile for different uses.
 '''
 class Appliance(models.Model):
     home = models.ForeignKey(Home, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     profiles = models.ManyToManyField(Profile)
-    maximum_duration_of_usage = models.DurationField(null=True)
+    maximum_delay = models.DurationField(default=timezone.timedelta(seconds=3600), null=True)
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['home', 'name'], name='unique_house_name')]
 
 '''
 Execution class
@@ -101,8 +113,8 @@ class Execution(models.Model):
         with transaction.atomic():
             self.start_time = timezone.now()
             if self.end_time is None:
-                if self.appliance.maximum_duration_of_usage is not None:
-                    self.end_time = self.start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
+                if self.profile.maximum_duration_of_usage is not None:
+                    self.end_time = self.start_time + self.profile.maximum_duration_of_usage - self.previous_progress_time
                 else:
                     self.end_time = INF_DATE
             self.is_started = True
@@ -134,10 +146,20 @@ class Execution(models.Model):
         with transaction.atomic():
             self.start_time = start_time
             if self.end_time is None:
-                if self.appliance.maximum_duration_of_usage is not None:
-                    self.end_time = self.start_time + self.appliance.maximum_duration_of_usage - self.previous_progress_time
+                if self.profile.maximum_duration_of_usage is not None:
+                    self.end_time = self.start_time + self.profile.maximum_duration_of_usage - self.previous_progress_time
                 else:
                     self.end_time = INF_DATE
+            self.save()
+
+    def set_end_time(self, end_time):
+        with transaction.atomic():
+            self.end_time = end_time
+            self.save()
+    
+    def set_request_time(self, request_time):
+        with transaction.atomic():
+            self.request_time = request_time
             self.save()
 
     def status(self):
@@ -164,26 +186,28 @@ class Execution(models.Model):
 
 class BatteryStorageSystem(models.Model):
     home = models.OneToOneField(Home, on_delete=models.CASCADE)
-    appliance = models.ForeignKey(Appliance, on_delete=models.CASCADE, null=True, blank=True)
+    appliance = models.OneToOneField(Appliance, on_delete=models.CASCADE, null=True, blank=True)
     total_energy_capacity = models.IntegerField(help_text="Total energy capacity (Wh)")
     continuous_power = models.IntegerField(help_text="Continuous charge/discharge power (W)")
     last_full_charge_time = models.DateTimeField(default=timezone.now)
-    depth_of_discharge = models.FloatField(help_text="Depth-of-Discharge", default=1)
+    depth_of_discharge = models.FloatField(help_text="Maximum depth-of-discharge (between 0 and 1)", default=1)
 
     def set_last_full_charge_time(self, last_full_charge_time=timezone.now):
         with transaction.atomic():
             self.last_full_charge_time = last_full_charge_time
             self.save()
 
+    def __str__(self):
+        return "Battery Storage System"
+
 @receiver(post_save, sender=BatteryStorageSystem, dispatch_uid="create_bss_appliance")
 def create_bss_appliance(sender, instance, created, **kwargs):
     if created:
-        charge_time = timezone.timedelta(seconds=floor(instance.total_energy_capacity / instance.continuous_power * 3600))
         instance.appliance, _ = Appliance.objects.get_or_create(
                     home=instance.home,
                     name="Battery Storage System",
                     defaults={
-                        "maximum_duration_of_usage": charge_time
+                        "maximum_delay": timezone.timedelta(seconds=60)
                     }
                 )
         instance.save()
@@ -193,8 +217,11 @@ class PhotovoltaicSystem(models.Model):
     latitude = models.FloatField()
     longitude = models.FloatField()
     tilt = models.IntegerField()
-    azimut = models.IntegerField()
-    capacity = models.IntegerField(help_text="System name plate capacity (Wdc)")
+    azimuth = models.IntegerField()
+    capacity = models.IntegerField(help_text="System nameplate capacity (Wdc)")
+    
+    def __str__(self):
+        return "Photovoltaic System"
 
 class ProductionData(models.Model):
     system = models.ForeignKey(PhotovoltaicSystem, on_delete=models.CASCADE)
@@ -210,4 +237,7 @@ class NoBSSystemException(Exception):
     pass
 
 class NoPVSystemException(Exception):
+    pass
+
+class NoAggregatorException(Exception):
     pass
