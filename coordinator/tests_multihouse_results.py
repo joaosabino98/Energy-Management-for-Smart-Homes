@@ -11,9 +11,11 @@ from django.utils import timezone
 from coordinator.settings import NONINTERRUPTIBLE, NORMAL
 from coordinator.models import Home, Execution, Appliance, Profile
 
-deviation = np.random.normal(0, 60, 6)
-print(deviation)
+# deviation = np.random.normal(0, 60, 6)
+# print(deviation)
+deviation = [-22.92231314, -71.44289487, -43.73885026, -74.99523538, -42.40808237, -60.68489958]
 
+@tag('diverse')
 class MultiHouse1TestCase(TestCase):
     fixtures = ['coordinator/fixtures/three_houses_profiles.json', 'coordinator/fixtures/three_houses_data.json']
 
@@ -399,7 +401,7 @@ class MultiHouse1TestCase(TestCase):
     def test_scenario_unmanaged_1(self):
         for i in [1, 2, 3]:
             home = Home.objects.get(pk=i)
-            home.set_consumption_threshold(12000)
+            home.set_consumption_threshold(15000)
             if i == 3:
                 coordinator.ext.create_battery_execution(
                     home,
@@ -414,6 +416,7 @@ class MultiHouse1TestCase(TestCase):
                     -2250
                 )
 
+        Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
         self.title = "Baseline aggregate consumption for 3 houses"
 
         for execution in self.executions:
@@ -437,7 +440,7 @@ class MultiHouse1TestCase(TestCase):
             home = Home.objects.get(pk=i)
             home.set_accept_recommendations(True)
             if i == 3:
-                home.set_consumption_threshold(5175)
+                home.set_consumption_threshold(5400)
                 coordinator.ext.schedule_battery_charge(home, self.midnight + timezone.timedelta(hours=5), True)
 
         self.title = "Managed aggregate consumption for 3 houses (Multi-House Mode)"
@@ -451,8 +454,8 @@ class MultiHouse1TestCase(TestCase):
             home = Home.objects.get(pk=i)
             executions = coordinator.get_pending_executions(home, self.midnight)
             delay_to_max = [(e.start_time - e.request_time).seconds / e.appliance.maximum_delay.seconds for e in executions]
-            max_delay_to_max = np.amax(delay_to_max)
-            print(f"DAWR: {max_delay_to_max}")
+            max_delay_to_max = np.average(delay_to_max)
+            print(f"Average DAWR: {max_delay_to_max}")
         coordinator.cli.send_create_plot(self.title)
 
 @tag('household1')
@@ -543,7 +546,8 @@ class MultiHouse2TestCase(TestCase):
         for i in [1, 2, 3, 4, 5]:
             home = Home.objects.get(pk=i)
             home.set_consumption_threshold(12000)
-        self.title = "Baseline aggregate consumption for 3 houses"
+        Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
+        self.title = "Baseline aggregate consumption for 5 houses"
 
         for execution in self.executions:
             execution.refresh_from_db()
@@ -551,7 +555,7 @@ class MultiHouse2TestCase(TestCase):
 
     @tag('singlehouse')
     def test_scenario_singlehouse_managed_1(self):
-        self.title = "Managed aggregate consumption for 3 houses (Single-House Mode)"
+        self.title = "Managed aggregate consumption for 5 houses (Single-House Mode)"
         for execution in self.executions:
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
@@ -562,7 +566,7 @@ class MultiHouse2TestCase(TestCase):
             home = Home.objects.get(pk=i)
             home.set_accept_recommendations(True)
 
-        self.title = "Managed aggregate consumption for 3 houses (Multi-House Mode)"
+        self.title = "Managed aggregate consumption for 5 houses (Multi-House Mode)"
 
         for execution in self.executions:
             execution.refresh_from_db()
@@ -573,6 +577,6 @@ class MultiHouse2TestCase(TestCase):
             home = Home.objects.get(pk=i)
             executions = coordinator.get_pending_executions(home, self.midnight)
             delay_to_max = [(e.start_time - e.request_time).seconds / e.appliance.maximum_delay.seconds for e in executions]
-            max_delay_to_max = np.amax(delay_to_max)
-            print(f"DAWR: {max_delay_to_max}")
+            max_delay_to_max = np.average(delay_to_max)
+            print(f"Average DAWR: {max_delay_to_max}")
         coordinator.cli.send_create_plot(self.title)

@@ -135,8 +135,8 @@ class SingleHouse1TestCase(TestCase):
 
         peak = np.amax(y)
         average = np.average(y[0:-1], weights=weights)
-        max_delay_to_max = np.amax(delay_to_max)
-        print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nMaximum DAWR: {max_delay_to_max}")
+        max_delay_to_max = np.average(delay_to_max)
+        print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nAverage DAWR: {max_delay_to_max}")
 
         plt.show()
 
@@ -299,8 +299,8 @@ class SingleHouse2TestCase(TestCase):
 
         peak = np.amax(y)
         average = np.average(y[0:-1], weights=weights)
-        max_delay_to_max = np.amax(delay_to_max)
-        print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nMaximum DAWR: {max_delay_to_max}")
+        max_delay_to_max = np.average(delay_to_max)
+        print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nAverage DAWR: {max_delay_to_max}")
 
         plt.show()
 
@@ -557,6 +557,7 @@ class SingleHouse3TestCase(TestCase):
         x = np.array([get_np_time(time) for time in reference_times])
         y = np.array([coordinator.get_power_consumption(home, time) for time in reference_times])
         y_prod = np.array([coordinator.ext.get_power_production(home, time) for time in reference_times])
+        y_sub = np.array([coordinator.get_power_consumption(home, time) - coordinator.ext.get_power_production(home, time) for time in reference_times])
         _, ax = plt.subplots(constrained_layout=True)
         ax.step(x, y, where='post')
         ax.step(x, y_prod, where='post', color='r')
@@ -573,11 +574,11 @@ class SingleHouse3TestCase(TestCase):
             time = (reference_times[i+1] - reference_times[i]).seconds
             weights.append(time)
 
-        peak = np.amax(y)
+        peak = np.amax(y_sub)
         average = np.average(y[0:-1], weights=weights)
-        max_delay_to_max = np.amax(delay_to_max)
-        print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nMaximum DAWR: {max_delay_to_max} \
-        \nBattery left(%): {battery_left/home.batterystoragesystem.total_energy_capacity}")
+        max_delay_to_max = np.average(delay_to_max)
+        print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nAverage DAWR: {max_delay_to_max}\n")
+        # Battery left(%): {battery_left/home.batterystoragesystem.total_energy_capacity
         plt.show()
 
 def get_np_num(time):

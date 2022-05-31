@@ -89,8 +89,10 @@ def handle_update_schedule_request(home_id, period_string):
 
 def handle_create_consumption_plot_request(title):
     myFmt = mdates.DateFormatter('%H:%M')
-    morning_before = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1,hours=18)
-    morning_after = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=2, hours=12)
+    morning_before = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1,hours=6)
+    morning_after = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=2, hours=6)
+    # morning_before = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1,hours=18)
+    # morning_after = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=2, hours=12)
     reference_times = get_consumption_reference_times_within(morning_before, morning_after)
     x = np.array([get_np_time(time) for time in reference_times])
     y = np.array([get_power_consumption(time) for time in reference_times])
