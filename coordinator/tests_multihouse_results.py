@@ -417,7 +417,7 @@ class MultiHouse1TestCase(TestCase):
                 )
 
         Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
-        self.title = "Baseline aggregate consumption for 3 houses"
+        self.title = "Baseline aggregate net consumption for 3 houses"
 
         for execution in self.executions:
             execution.refresh_from_db()
@@ -428,7 +428,7 @@ class MultiHouse1TestCase(TestCase):
         home = Home.objects.get(pk=3)
         coordinator.ext.schedule_battery_charge(home, self.midnight + timezone.timedelta(hours=5), True)
 
-        self.title = "Managed aggregate consumption for 3 houses (Single-House Mode)"
+        self.title = "Managed aggregate net consumption for 3 houses (Single-House Mode)"
 
         for execution in self.executions:
             execution.refresh_from_db()
@@ -443,7 +443,7 @@ class MultiHouse1TestCase(TestCase):
                 home.set_consumption_threshold(5400)
                 coordinator.ext.schedule_battery_charge(home, self.midnight + timezone.timedelta(hours=5), True)
 
-        self.title = "Managed aggregate consumption for 3 houses (Multi-House Mode)"
+        self.title = "Managed aggregate net consumption for 3 houses (Multi-House Mode)"
 
         for execution in self.executions:
             execution.refresh_from_db()
@@ -547,7 +547,7 @@ class MultiHouse2TestCase(TestCase):
             home = Home.objects.get(pk=i)
             home.set_consumption_threshold(12000)
         Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
-        self.title = "Baseline aggregate consumption for 5 houses"
+        self.title = "Baseline aggregate net consumption for 5 houses"
 
         for execution in self.executions:
             execution.refresh_from_db()
@@ -555,7 +555,7 @@ class MultiHouse2TestCase(TestCase):
 
     @tag('singlehouse')
     def test_scenario_singlehouse_managed_1(self):
-        self.title = "Managed aggregate consumption for 5 houses (Single-House Mode)"
+        self.title = "Managed aggregate net consumption for 5 houses (Single-House Mode)"
         for execution in self.executions:
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
@@ -566,7 +566,7 @@ class MultiHouse2TestCase(TestCase):
             home = Home.objects.get(pk=i)
             home.set_accept_recommendations(True)
 
-        self.title = "Managed aggregate consumption for 5 houses (Multi-House Mode)"
+        self.title = "Managed aggregate net consumption for 5 houses (Multi-House Mode)"
 
         for execution in self.executions:
             execution.refresh_from_db()

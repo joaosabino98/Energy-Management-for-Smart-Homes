@@ -508,7 +508,7 @@ class SingleHouse3TestCase(TestCase):
         home.set_consumption_threshold(12000)
         Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
         home.batterystoragesystem.delete()
-        self.title = "Baseline consumption for household 3"
+        self.title = "Baseline consumption and production for household 3"
 
         coordinator.ext.create_battery_execution(
             home,
@@ -531,7 +531,7 @@ class SingleHouse3TestCase(TestCase):
         home.set_consumption_threshold(12000)
         Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
         home.batterystoragesystem.delete()
-        self.title = "Baseline consumption for household 3 (no BSS)"
+        self.title = "Baseline production and consumption for household 3 (no BSS)"
 
         for execution in self.executions:
             execution.refresh_from_db()
@@ -539,7 +539,7 @@ class SingleHouse3TestCase(TestCase):
 
     @tag('managed')
     def test_scenario_scheduled_single_house_3(self):
-        self.title = 'Managed consumption for household 3'
+        self.title = 'Managed production and consumption for household 3'
         home = Home.objects.get(pk=3)
         coordinator.ext.schedule_battery_charge(home, self.midnight + timezone.timedelta(hours=5), True)
 
@@ -559,8 +559,8 @@ class SingleHouse3TestCase(TestCase):
         y_prod = np.array([coordinator.ext.get_power_production(home, time) for time in reference_times])
         y_sub = np.array([coordinator.get_power_consumption(home, time) - coordinator.ext.get_power_production(home, time) for time in reference_times])
         _, ax = plt.subplots(constrained_layout=True)
-        ax.step(x, y, where='post')
-        ax.step(x, y_prod, where='post', color='r')
+        ax.step(x, y, where='post', label="Consumption")
+        ax.step(x, y_prod, where='post', color='r', label="Production")
         ax.set_title(self.title)
         ax.set_xlabel('Time (hh:mm)')
         ax.set_ylabel('Consumption (W)')
@@ -579,6 +579,7 @@ class SingleHouse3TestCase(TestCase):
         max_delay_to_max = np.average(delay_to_max)
         print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nAverage DAWR: {max_delay_to_max}\n")
         # Battery left(%): {battery_left/home.batterystoragesystem.total_energy_capacity
+        plt.legend()
         plt.show()
 
 def get_np_num(time):
