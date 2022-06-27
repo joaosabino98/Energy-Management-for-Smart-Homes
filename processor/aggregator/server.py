@@ -12,6 +12,9 @@ context = zmq.Context()
 socket = context.socket(zmq.REP)
 socket.bind("tcp://*:5555")
 
+x = []
+y = []
+
 def get_scheduled_consumption():
 	return ConsumptionData.objects.exclude(end_time__lt=timezone.now()).order_by('end_time')
 
@@ -88,31 +91,44 @@ def handle_update_schedule_request(home_id, period_string):
     socket.send(str)    
 
 def handle_create_consumption_plot_request(title):
+    global x
+    global y
     myFmt = mdates.DateFormatter('%H:%M')
-    morning_before = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1,hours=6)
-    morning_after = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=2, hours=6)
-    # morning_before = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1,hours=18)
-    # morning_after = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=2, hours=12)
+    if "night" in title:
+        morning_before = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1,hours=18)
+        morning_after = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=2, hours=12)
+    else:
+        morning_before = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1,hours=6)
+        morning_after = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=2, hours=6)
     reference_times = get_consumption_reference_times_within(morning_before, morning_after)
-    x = np.array([get_np_time(time) for time in reference_times])
-    y = np.array([get_power_consumption(time) for time in reference_times])
-    _, ax = plt.subplots(constrained_layout=True)
-    ax.step(x, y, where='post')
-    ax.set_title(title)
-    ax.set_xlabel('Time (hh:mm)')
-    ax.set_ylabel('Consumption (W)')
-    ax.xaxis.set_major_formatter(myFmt)
-    ax.xaxis.set_tick_params(rotation=40)
+    x.append(np.array([get_np_time(time) for time in reference_times]))
+    y.append(np.array([get_power_consumption(time) for time in reference_times]))
 
     weights = []
     for i in range(0, len(reference_times) - 1):
         time = (reference_times[i+1] - reference_times[i]).seconds
         weights.append(time)
 
-    peak = np.amax(y)
-    average = np.average(y[0:-1], weights=weights)
+    peak = np.amax(y[-1])
+    average = np.average(y[-1][0:-1], weights=weights)
     print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}")
-    plt.show()
+
+    if len(x) == 3:
+        _, ax = plt.subplots(constrained_layout=True)
+        ax.step(x[2], y[2], where='post', zorder=1)
+        ax.step(x[1], y[1], where='post', zorder=0)
+        ax.step(x[0], y[0], where='post', zorder=2)
+        # for i in reversed(range(0, len(y))):
+        #     ax.step(x[i], y[i], where='post', zorder=i)
+        ax.set_title(title)
+        ax.set_xlabel('Time (hh:mm)')
+        ax.set_ylabel('Consumption (W)')
+        ax.xaxis.set_major_formatter(myFmt)
+        ax.xaxis.set_tick_params(rotation=40)
+        plt.legend(["Baseline", "Single-House", "Multi-House"])
+        plt.show()
+        x = []
+        y = []
     str = f"OK.".encode("utf-8")
     socket.send(str)    
 

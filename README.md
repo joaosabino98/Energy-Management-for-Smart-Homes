@@ -34,6 +34,21 @@
 ### Load Solar data (in solardata folder) as production data of the latest PV system added
 `echo 'exec(open("scripts/load_solar_data.py").read())' | python manage.py shell`
 
+### Test single-house results for household 1
+`python manage.py test --pattern "tests_singlehouse_*.py" --tag=house1`
+
+### Test single-house results for household 2
+`python manage.py test --pattern "tests_singlehouse_*.py" --tag=house2`
+
+### Test single-house results for household 3
+`python manage.py test --pattern "tests_singlehouse_*.py" --tag=house3`
+
+### Test multi-house results for heterogeneous simulation
+`python manage.py test --pattern "tests_multihouse_*.py" --tag=diverse`
+
+### Test multi-house results for pattern-repeated simulation
+`python manage.py test --pattern "tests_multihouse_*.py" --tag=household1`
+
 ---
 
 ## Shell tests
