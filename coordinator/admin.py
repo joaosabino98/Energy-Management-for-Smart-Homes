@@ -5,6 +5,7 @@ from .models import Home, BatteryStorageSystem, PhotovoltaicSystem, Appliance, E
 from .filters import StatusFilter, HiddenFilter
 
 # Register your models here.
+#core.start()
 
 class ExecutionAdmin(admin.ModelAdmin):
     @admin.action(description="Schedule execution")

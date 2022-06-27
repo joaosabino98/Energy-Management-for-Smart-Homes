@@ -10,6 +10,9 @@ from django.utils import timezone
 from coordinator.settings import NONINTERRUPTIBLE, NORMAL
 from coordinator.models import Home, Execution, Appliance, Profile
 
+x = []
+y = []
+
 @tag('house1')
 class SingleHouse1TestCase(TestCase):
     fixtures = ['coordinator/fixtures/three_houses_profiles.json', 'coordinator/fixtures/three_houses_data.json']
@@ -17,8 +20,7 @@ class SingleHouse1TestCase(TestCase):
     def setUp(self):
         self.midnight = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
         home = Home.objects.get(pk=1)
-        
-        self.title = ""
+        self.title = "Consumption in household 1"
         self.executions = []
         self.executions.append(
             Execution.objects.create(
@@ -95,36 +97,27 @@ class SingleHouse1TestCase(TestCase):
         home = Home.objects.get(pk=1)
         home.set_consumption_threshold(10000)
         Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
-        self.title = "Baseline consumption for household 1"
-
         for execution in self.executions:
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
 
     @tag('managed')
     def test_scenario_scheduled_single_house_1(self):
-        self.title = 'Managed consumption for household 1'
-
         for execution in self.executions:
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
 
         
     def tearDown(self):
+        global x
+        global y
         home = Home.objects.get(pk=1)
         myFmt = mdates.DateFormatter('%H:%M')
         morning_before = self.midnight + timezone.timedelta(days=0, hours=6)
         morning_after = self.midnight + timezone.timedelta(days=1, hours=6)
         reference_times = coordinator.get_consumption_reference_times_within(home, morning_before, morning_after)
-        x = np.array([get_np_time(time) for time in reference_times])
-        y = np.array([coordinator.get_power_consumption(home, time) for time in reference_times])
-        _, ax = plt.subplots(constrained_layout=True)
-        ax.step(x, y, where='post')
-        ax.set_title(self.title)
-        ax.set_xlabel('Time (hh:mm)')
-        ax.set_ylabel('Consumption (W)')
-        ax.xaxis.set_major_formatter(myFmt)
-        ax.xaxis.set_tick_params(rotation=40)
+        x.append(np.array([get_np_time(time) for time in reference_times]))
+        y.append(np.array([coordinator.get_power_consumption(home, time) for time in reference_times]))
 
         executions = coordinator.get_unfinished_executions(home, morning_before)
         delay_to_max = [(e.start_time - e.request_time).seconds / e.appliance.maximum_delay.seconds for e in executions]
@@ -133,12 +126,24 @@ class SingleHouse1TestCase(TestCase):
             time = (reference_times[i+1] - reference_times[i]).seconds
             weights.append(time)
 
-        peak = np.amax(y)
-        average = np.average(y[0:-1], weights=weights)
+        peak = np.amax(y[-1])
+        average = np.average(y[-1][0:-1], weights=weights)
         max_delay_to_max = np.average(delay_to_max)
         print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nAverage DAWR: {max_delay_to_max}")
 
-        plt.show()
+        if len(x) == 2:
+            _, ax = plt.subplots(constrained_layout=True)
+            for i in range(0, len(x)):
+                ax.step(x[i], y[i], where='post', zorder=i)
+            ax.set_title(self.title)
+            ax.set_xlabel('Time (hh:mm)')
+            ax.set_ylabel('Consumption (W)')
+            ax.xaxis.set_major_formatter(myFmt)
+            ax.xaxis.set_tick_params(rotation=40)
+            plt.legend(["Baseline", "Managed"])
+            plt.show()
+            x = []
+            y = []
 
 @tag('house2')
 class SingleHouse2TestCase(TestCase):
@@ -148,7 +153,7 @@ class SingleHouse2TestCase(TestCase):
         self.midnight = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
         home = Home.objects.get(pk=2)
 
-        self.title = ""
+        self.title = "Consumption in household 2"
         self.executions = []
         self.executions.append(
             Execution.objects.create(
@@ -260,35 +265,26 @@ class SingleHouse2TestCase(TestCase):
         home = Home.objects.get(pk=2)
         home.set_consumption_threshold(10000)
         Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
-        self.title = "Baseline consumption for household 2"
-
         for execution in self.executions:
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
 
     @tag('managed')
     def test_scenario_scheduled_single_house_2(self):
-        self.title = 'Managed consumption for household 2'
-
         for execution in self.executions:
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
 
     def tearDown(self):
+        global x
+        global y
         home = Home.objects.get(pk=2)
         myFmt = mdates.DateFormatter('%H:%M')
         morning_before = self.midnight + timezone.timedelta(days=0, hours=6)
         morning_after = self.midnight + timezone.timedelta(days=1, hours=6)
         reference_times = coordinator.get_consumption_reference_times_within(home, morning_before, morning_after)
-        x = np.array([get_np_time(time) for time in reference_times])
-        y = np.array([coordinator.get_power_consumption(home, time) for time in reference_times])
-        _, ax = plt.subplots(constrained_layout=True)
-        ax.step(x, y, where='post')
-        ax.set_title(self.title)
-        ax.set_xlabel('Time (hh:mm)')
-        ax.set_ylabel('Consumption (W)')
-        ax.xaxis.set_major_formatter(myFmt)
-        ax.xaxis.set_tick_params(rotation=40)
+        x.append(np.array([get_np_time(time) for time in reference_times]))
+        y.append(np.array([coordinator.get_power_consumption(home, time) for time in reference_times]))
 
         executions = coordinator.get_unfinished_executions(home, morning_before)
         delay_to_max = [(e.start_time - e.request_time).seconds / e.appliance.maximum_delay.seconds for e in executions]
@@ -297,12 +293,24 @@ class SingleHouse2TestCase(TestCase):
             time = (reference_times[i+1] - reference_times[i]).seconds
             weights.append(time)
 
-        peak = np.amax(y)
-        average = np.average(y[0:-1], weights=weights)
+        peak = np.amax(y[-1])
+        average = np.average(y[-1][0:-1], weights=weights)
         max_delay_to_max = np.average(delay_to_max)
         print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nAverage DAWR: {max_delay_to_max}")
 
-        plt.show()
+        if len(x) == 2:
+            _, ax = plt.subplots(constrained_layout=True)
+            for i in range(0, len(x)):
+                ax.step(x[i], y[i], where='post', zorder=2-i)
+            ax.set_title(self.title)
+            ax.set_xlabel('Time (hh:mm)')
+            ax.set_ylabel('Consumption (W)')
+            ax.xaxis.set_major_formatter(myFmt)
+            ax.xaxis.set_tick_params(rotation=40)
+            plt.legend(["Baseline", "Managed"])
+            plt.show()
+            x = []
+            y = []
 
 @tag('house3')
 class SingleHouse3TestCase(TestCase):
@@ -312,7 +320,7 @@ class SingleHouse3TestCase(TestCase):
         home = Home.objects.get(pk=3)
         exec(open("scripts/load_solar_data.py").read())
         self.midnight = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
-        self.title = ""
+        self.title = "Net consumption in household 3"
         coordinator.ext.create_battery_execution(
             home,
             self.midnight + timezone.timedelta(hours=0),
@@ -508,7 +516,6 @@ class SingleHouse3TestCase(TestCase):
         home.set_consumption_threshold(12000)
         Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
         home.batterystoragesystem.delete()
-        self.title = "Baseline consumption for household 3"
 
         coordinator.ext.create_battery_execution(
             home,
@@ -531,7 +538,6 @@ class SingleHouse3TestCase(TestCase):
         home.set_consumption_threshold(12000)
         Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
         home.batterystoragesystem.delete()
-        self.title = "Baseline consumption for household 3 (no BSS)"
 
         for execution in self.executions:
             execution.refresh_from_db()
@@ -539,7 +545,6 @@ class SingleHouse3TestCase(TestCase):
 
     @tag('managed')
     def test_scenario_scheduled_single_house_3(self):
-        self.title = 'Managed consumption for household 3'
         home = Home.objects.get(pk=3)
         coordinator.ext.schedule_battery_charge(home, self.midnight + timezone.timedelta(hours=5), True)
 
@@ -548,24 +553,16 @@ class SingleHouse3TestCase(TestCase):
             coordinator.schedule_execution(execution, execution.request_time, True)
 
     def tearDown(self):
+        global x
+        global y
         home = Home.objects.get(pk=3)
         myFmt = mdates.DateFormatter('%H:%M')
         morning_before = self.midnight + timezone.timedelta(days=0, hours=6)
         morning_after = self.midnight + timezone.timedelta(days=1, hours=6)
-        battery_left = coordinator.ext.get_battery_energy(home, morning_after)
         reference_times = coordinator.get_consumption_reference_times_within(home, morning_before, morning_after)
-        x = np.array([get_np_time(time) for time in reference_times])
-        y = np.array([coordinator.get_power_consumption(home, time) for time in reference_times])
-        y_prod = np.array([coordinator.ext.get_power_production(home, time) for time in reference_times])
-        y_sub = np.array([coordinator.get_power_consumption(home, time) - coordinator.ext.get_power_production(home, time) for time in reference_times])
-        _, ax = plt.subplots(constrained_layout=True)
-        ax.step(x, y, where='post')
-        ax.step(x, y_prod, where='post', color='r')
-        ax.set_title(self.title)
-        ax.set_xlabel('Time (hh:mm)')
-        ax.set_ylabel('Consumption (W)')
-        ax.xaxis.set_major_formatter(myFmt)
-        ax.xaxis.set_tick_params(rotation=40)
+
+        x.append(np.array([get_np_time(time) for time in reference_times]))
+        y.append(np.array([coordinator.get_power_consumption(home, time) - coordinator.ext.get_power_production(home, time) for time in reference_times]))
 
         executions = coordinator.get_unfinished_executions(home, morning_before)
         delay_to_max = [(e.start_time - e.request_time).seconds / e.appliance.maximum_delay.seconds for e in executions]
@@ -574,12 +571,26 @@ class SingleHouse3TestCase(TestCase):
             time = (reference_times[i+1] - reference_times[i]).seconds
             weights.append(time)
 
-        peak = np.amax(y_sub)
-        average = np.average(y[0:-1], weights=weights)
+        peak = np.amax(y[-1])
+        average = np.average(y[-1][0:-1], weights=weights)
         max_delay_to_max = np.average(delay_to_max)
-        print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nAverage DAWR: {max_delay_to_max}\n")
-        # Battery left(%): {battery_left/home.batterystoragesystem.total_energy_capacity
-        plt.show()
+        print(f"Peak: {peak}\nAverage: {average}\nPAR: {peak/average}\nAverage DAWR: {max_delay_to_max}")
+
+        if len(x) == 3:
+            _, ax = plt.subplots(constrained_layout=True)
+            ax.step(x[0], y[0], where='post', zorder=2)
+            ax.step(x[1], y[1], where='post', zorder=1)
+            ax.step(x[2], y[2], where='post', zorder=3)
+
+            ax.set_title(self.title)
+            ax.set_xlabel('Time (hh:mm)')
+            ax.set_ylabel('Consumption (W)')
+            ax.xaxis.set_major_formatter(myFmt)
+            ax.xaxis.set_tick_params(rotation=40)
+            plt.legend(["Baseline w/ BSS", "Baseline w/o BSS", "Managed"])
+            plt.show()
+            x = []
+            y = []
 
 def get_np_num(time):
     return mdates.date2num(timezone.make_naive(time))

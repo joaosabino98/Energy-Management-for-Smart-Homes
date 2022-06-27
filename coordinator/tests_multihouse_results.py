@@ -22,7 +22,7 @@ class MultiHouse1TestCase(TestCase):
     def setUp(self):
         self.midnight = midnight = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
         home = Home.objects.get(pk=1)
-        self.title = ""
+        self.title = "Aggregate net consumption from 3 houses (diverse profiles)"
         for i in [1, 2, 3]:
             coordinator.start_aggregator_client(Home.objects.get(pk=i), False)
         self.executions = []
@@ -417,7 +417,6 @@ class MultiHouse1TestCase(TestCase):
                 )
 
         Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
-        self.title = "Baseline aggregate consumption for 3 houses"
 
         for execution in self.executions:
             execution.refresh_from_db()
@@ -427,8 +426,6 @@ class MultiHouse1TestCase(TestCase):
     def test_scenario_singlehouse_managed_1(self):
         home = Home.objects.get(pk=3)
         coordinator.ext.schedule_battery_charge(home, self.midnight + timezone.timedelta(hours=5), True)
-
-        self.title = "Managed aggregate consumption for 3 houses (Single-House Mode)"
 
         for execution in self.executions:
             execution.refresh_from_db()
@@ -442,8 +439,6 @@ class MultiHouse1TestCase(TestCase):
             if i == 3:
                 home.set_consumption_threshold(5400)
                 coordinator.ext.schedule_battery_charge(home, self.midnight + timezone.timedelta(hours=5), True)
-
-        self.title = "Managed aggregate consumption for 3 houses (Multi-House Mode)"
 
         for execution in self.executions:
             execution.refresh_from_db()
@@ -465,7 +460,7 @@ class MultiHouse2TestCase(TestCase):
     def setUp(self):
         self.midnight = midnight = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) + timezone.timedelta(days=1)
         self.executions = []
-        self.title = ""
+        self.title = "Aggregate net consumption from 5 houses at night (similar profiles)"
         for i in [1, 2, 3, 4, 5]:
             home = Home.objects.get(pk=i)
             coordinator.start_aggregator_client(Home.objects.get(pk=i), False)
@@ -547,15 +542,12 @@ class MultiHouse2TestCase(TestCase):
             home = Home.objects.get(pk=i)
             home.set_consumption_threshold(12000)
         Profile.objects.all().update(schedulability=NONINTERRUPTIBLE, priority=NORMAL)
-        self.title = "Baseline aggregate consumption for 5 houses"
-
         for execution in self.executions:
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
 
     @tag('singlehouse')
     def test_scenario_singlehouse_managed_1(self):
-        self.title = "Managed aggregate consumption for 5 houses (Single-House Mode)"
         for execution in self.executions:
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
@@ -565,9 +557,6 @@ class MultiHouse2TestCase(TestCase):
         for i in [1, 2, 3, 4, 5]:
             home = Home.objects.get(pk=i)
             home.set_accept_recommendations(True)
-
-        self.title = "Managed aggregate consumption for 5 houses (Multi-House Mode)"
-
         for execution in self.executions:
             execution.refresh_from_db()
             coordinator.schedule_execution(execution, execution.request_time, True)
