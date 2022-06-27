@@ -1,38 +1,47 @@
 # Energy Management for Smart Homes
 
+An autonomous HEMS that schedules household appliances with a focus on peak shifting. Peak shifting is accomplished by limiting consumption to a threshold defined by the user. If the threshold is surpassed, energy loads are delayed or shifted to an available period. The system is able to start, shift, delay and interrupt appliances interactively, using a priority system based on user preference to decide as new scheduling requests are made. Scheduling in real time using dynamic priorities increases flexibility to the user, enabling sudden consumption changes from unexpected behavior and quickly adapting to them. BSS and PV systems are integrated as peak shaving and valley filling mechanisms. The solution incorporates a minimal interface and is able to coordinate loads between residential units in shared dwelling complexes.
+
+© 2022 João Sabino
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---
+
 ## Common commands
-### Go to project root folder
-`cd C:\Users\jsabi\Documents\Tese\home`
 
-### Create database schema
-`python manage.py makemigrations`
+### Clean database and setup sample data (PowerShell script)
+`.\scripts\clean_setup.ps1`
 
-### Apply schema
-`python manage.py migrate`
+NOTE: be sure `core.start()` is commented in `coordinator\admin.py` before running script. Uncomment it afterwards.
 
-### Create admin
-`python manage.py createsuperuser`
+### Load Solar data (in solardata folder) as production data of the latest PV system added
+`echo 'exec(open("scripts/load_solar_data.py").read())' | python manage.py shell`
 
-### Run server
-`python manage.py runserver`
+---
 
-### Load fixture
-`python manage.py loaddata <fixture>`
-
-### Create fixtures
-`python manage.py dumpdata`
-
-### Access objects through shell
+### Open CLI
 `python manage.py shell`
 
 ### Run tests
 `python manage.py test [--tag=core] [--exclude-tag=slow]`
 
-### Clean database and setup sample data (PowerShell script)
-`.\scripts\clean_setup.ps1`
+### Start Coordinator
+`python manage.py shell`
 
-### Load Solar data (in solardata folder) as production data of the latest PV system added
-`echo 'exec(open("scripts/load_solar_data.py").read())' | python manage.py shell`
+```
+import processor.core as core
+import processor.external_energy as ext
+from coordinator.models import *
+core.start()
+```
+
+### Start Aggregator
+`python manage.py run_aggregator`
 
 ### Test single-house results for household 1
 `python manage.py test --pattern "tests_singlehouse_*.py" --tag=house1`
@@ -46,12 +55,16 @@
 ### Test multi-house results for heterogeneous simulation
 `python manage.py test --pattern "tests_multihouse_*.py" --tag=diverse`
 
+NOTE: Aggregator must be running for this simulation.
+
 ### Test multi-house results for pattern-repeated simulation
 `python manage.py test --pattern "tests_multihouse_*.py" --tag=household1`
 
+NOTE: Aggregator must be running for this simulation.
+
 ---
 
-## Shell tests
+## CLI tests and examples
 ### Schedule execution
 ```
 import processor.core as core
@@ -80,82 +93,6 @@ e.delete()
 ```
 
 <!--
----
-
-## Complex scenarios
-### Scenario 1: average consumption
-
-User wakes up at 7:00 AM, takes a warm shower, prepares their breakfast with the coffee machine and the toaster.
-Leaves to work with their electric car.
-Comes home at 18:00 PM. Turns on the television, 
-
-```
-from coordinator.models import *
-import time
-home = Home.objects.get(pk=1)
-midnight = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)+timezone.timedelta(days=1)
-e1 = Execution.objects.create(home=home, request_time=midnight+timezone.timedelta(hours=7),
-appliance=Appliance.objects.get(pk=5),profile=Profile.objects.get(pk=19))
-e1 = Execution.objects.create(home=home, request_time=midnight+timezone.timedelta(hours=7),
-    appliance=Appliance.objects.get(pk=1))
-
-
-# Television
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=1),profile=Profile.objects.get(pk=20))
-# Microwave
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=1))
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=2))
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=2),profile=Profile.objects.get(pk=3))
-# Oven
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=3),profile=Profile.objects.get(pk=4))
-# Heater (bedroom)
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=4),profile=Profile.objects.get(pk=17))
-# Water heater
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=5),profile=Profile.objects.get(pk=19))
-# Washing Machine
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=6),profile=Profile.objects.get(pk=10))
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=6),profile=Profile.objects.get(pk=11))
-# Dishwasher
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=7),profile=Profile.objects.get(pk=7))
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=7),profile=Profile.objects.get(pk=8))
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=7),profile=Profile.objects.get(pk=9))
-# Air Conditioner
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=8),profile=Profile.objects.get(pk=5))
-# Fridge
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=9),profile=Profile.objects.get(pk=6))
-# Coffee Machine
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=10),profile=Profile.objects.get(pk=13))
-# Vacuum Cleaner
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=11),profile=Profile.objects.get(pk=12))
-# Electric Vehicle
-Execution.objects.create(home=home,appliance=Appliance.objects.get(pk=12),profile=Profile.objects.get(pk=21))
-# Phone Charger
-
-# Laptop Charger
-
-# Hair Dryer
-
-
-```
-
-#### Single-house consumption with unlimited threshold - baseline
-
-
-#### Single-house consumption
-
-
-```
-import processor.core as core
-import processor.external_energy as ext
-from coordinator.models import *
-import time
-core.start()
-home = Home.objects.get(pk=1)
-
-```
----
--->
-
 
 ### Scheduling strategies
 1. Peak-shaving: application scheduled to nearest available time
@@ -184,7 +121,6 @@ home = Home.objects.get(pk=1)
 
 ---
 
-<!-- 
 ## Technical Documentation
 
 ### Object classes
